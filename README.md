@@ -1,8 +1,8 @@
 # Quantyx
 
-**Quantyx** is a professional desktop application designed for high-performance Exploratory Data Analysis (EDA), Data Preprocessing, and Machine Learning, built specifically for industrial and scientific environments. 
+**Quantyx** is a desktop application designed for high-performance Exploratory Data Analysis (EDA), Data Preprocessing, and Machine Learning, built specifically for industrial and scientific environments.
 
-Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers lightning-fast visualization for massive datasets, seamless Databricks integration, and an intuitive drag-and-drop interface.
+Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers fast visualization for massive datasets, Databricks integration, and an intuitive interface.
 
 ---
 
@@ -47,8 +47,7 @@ Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers lightning-
 
 ### Requirements
 *   Python 3.12+
-*   Dependencies listed in 
-equirements.txt
+*   Dependencies listed in requirements.txt
 
 ### Running from Source
 1. Clone the repository.
@@ -62,7 +61,7 @@ equirements.txt
    python main.py
    \
 ### Building Executables
-Quantyx includes an interactive build script (\uild.bat\) to easily package the application for distribution. Just run it and choose your preferred output:
+Quantyx includes an interactive build script (\build.bat\) to easily package the application for distribution. Just run it and choose your preferred output:
 1. **PyInstaller (One-Dir):** Recommended for testing.
 2. **PyInstaller (One-File):** Generates a single standalone \.exe\.
 3. **Pynsist (NSIS Installer):** Generates a professional Windows Setup Installer that installs in the user's \AppData\ directory (Requires no Administrator privileges).
