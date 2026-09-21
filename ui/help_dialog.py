@@ -27,7 +27,13 @@ HELP_HTML = """
     <li><b>Line Plot:</b> Great for time-series. Automatically detects datetime columns and formats the X-axis ticks.</li>
     <li><b>Histogram & Bar Plot:</b> Explore distributions and counts. The Bar Plot specifically supports categorical grouping on the X-axis.</li>
     <li><b>Boxplot:</b> Analyze statistical spread. Check multiple boxes in the <i>All Variables</i> list to create nested/multi-level X-axis groups!</li>
-    <li><b>Parallel Coordinates & Correlation Matrix:</b> Select multiple numeric variables in the left panel to map multidimensional relationships.</li>
+    <li><b>Parallel Coordinates:</b> Select multiple numeric variables to map multidimensional relationships. Features full interactivity:
+        <ul>
+            <li><b>Click a line:</b> Highlights the specific data profile in red and displays its exact values across all dimensions.</li>
+            <li><b>Drag to select:</b> Draw a yellow selection box over the axes to instantly filter and highlight all lines passing through that region.</li>
+        </ul>
+    </li>
+    <li><b>Correlation Matrix:</b> Select multiple numeric variables to analyze their Pearson correlation coefficients.</li>
 </ul>
 
 <h2>4. Customizing Plots (Plot Properties)</h2>

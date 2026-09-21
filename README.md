@@ -20,7 +20,7 @@ Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers fast visua
 
 ### 📊 High-Performance Visualizations (PyQtGraph)
 *   **Boxplots:** Advanced multi-variable nesting with Minitab-style statistical tables aligned under the X-axis. Toggle exact statistical values (Means, Q1, Q3) directly on the plot.
-*   **Parallel Coordinates:** Visualize highly-dimensional datasets effortlessly.
+*   **Parallel Coordinates:** Visualize highly-dimensional datasets with advanced interactivity. **Click** any line to see its exact data profile, or **drag to draw a selection box** and instantly highlight all lines passing through a specific region.
 *   **Scatter & Line Plots:** Capable of rendering millions of points without freezing. Automatic datetime detection for time-series data.
 *   **Correlation Matrix & Histograms:** Quick statistical distribution analysis.
 *   **Customization:** Fully customizable axes, dynamic color pickers, titles, and horizontal dashed Limit Lines.

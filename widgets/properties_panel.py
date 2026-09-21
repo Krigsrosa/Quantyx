@@ -268,8 +268,8 @@ class PropertiesPanel(QWidget):
         
         self.base_color_widget.setVisible(not has_cats)
         
-        # Hide the entire Plot Colors group if it's Parallel(5) or Corr(6)
-        if tab_idx in [5, 6]:
+        # Hide the entire Plot Colors group if it's Corr(6)
+        if tab_idx in [6]:
             self.group_cat_colors.hide()
         else:
             self.group_cat_colors.show()
