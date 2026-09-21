@@ -13,15 +13,13 @@ echo Escolha o tipo de empacotamento desejado:
 echo.
 echo  [1] PyInstaller (One-Dir)  - Mais rapido p/ testes
 echo  [2] PyInstaller (One-File) - Unico .exe (pode ser lento)
-echo  [3] Pynsist (Instalador)   - Gera um setup.exe (Recomendado p/ Usuarios)
-echo  [4] Sair
+echo  [3] Sair
 echo.
-set /p op=Digite a opcao desejada [1/2/3/4]: 
+set /p op=Digite a opcao desejada [1/2/3]: 
 
 if "%op%"=="1" goto onedir
 if "%op%"=="2" goto onefile
-if "%op%"=="3" goto pynsist
-if "%op%"=="4" goto exit
+if "%op%"=="3" goto exit
 goto menu
 
 :onedir
@@ -29,9 +27,10 @@ cls
 echo ===================================================
 echo   Construindo PyInstaller (One-Dir)...
 echo ===================================================
+call cd %~dp0
 call .venv\Scripts\activate.bat
 pip install pyinstaller
-call pyinstaller --name "Quantyx" ^
+python -m PyInstaller --name "Quantyx" ^
   --onedir ^
   --noconfirm ^
   --windowed ^
@@ -69,9 +68,10 @@ cls
 echo ===================================================
 echo   Construindo PyInstaller (One-File)...
 echo ===================================================
+call cd %~dp0
 call .venv\Scripts\activate.bat
 pip install pyinstaller
-call pyinstaller --name "Quantyx" ^
+python -m PyInstaller --name "Quantyx" ^
   --onefile ^
   --noconfirm ^
   --windowed ^
@@ -100,18 +100,6 @@ call pyinstaller --name "Quantyx" ^
   main.py
 echo ===================================================
 echo Concluido! O executavel esta em "dist\Quantyx.exe"
-echo ===================================================
-pause
-goto menu
-
-:pynsist
-cls
-echo ===================================================
-echo   Construindo Instalador Windows (Pynsist)...
-echo ===================================================
-C:\Users\50116125\AppData\Roaming\Python\Python312\Scripts\pynsist.exe installer.cfg
-echo ===================================================
-echo Concluido! O instalador esta em "build\nsis"
 echo ===================================================
 pause
 goto menu
