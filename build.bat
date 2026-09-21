@@ -1,7 +1,7 @@
 @echo off
 
 echo ===================================================
-echo   Compilando PyTab com PyInstaller (OneFile)
+echo   Compilando Quantyx com PyInstaller (OneFile)
 echo ===================================================
 
 echo.
