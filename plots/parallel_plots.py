@@ -21,11 +21,116 @@ class ParallelPlotWidget(QWidget):
         self.layout.addWidget(self.plot_widget)
         
         self.plot_widget.scene().sigMouseClicked.connect(self.on_mouse_clicked)
+        self.original_drag = self.plot_widget.getViewBox().mouseDragEvent
+        self.plot_widget.getViewBox().mouseDragEvent = self.custom_drag_event
+        
         self.norm_matrix = None
         self.plot_df_orig = None
         self.valid_cols = []
         self.highlight_curve = None
         self.highlight_text = None
+        self.selection_box = None
+
+    def custom_drag_event(self, ev):
+        if ev.button() == Qt.MouseButton.LeftButton:
+            ev.accept()
+            vb = self.plot_widget.getViewBox()
+            
+            if ev.isStart():
+                if getattr(self, 'selection_box', None) is None:
+                    self.selection_box = pg.QtGui.QGraphicsRectItem()
+                    self.selection_box.setPen(pg.mkPen('y', width=2, style=Qt.PenStyle.DashLine))
+                    self.selection_box.setBrush(pg.mkBrush(255, 255, 0, 50))
+                    self.selection_box.setZValue(1e6)
+                    self.plot_widget.addItem(self.selection_box)
+                self.drag_start_pos = vb.mapSceneToView(ev.buttonDownScenePos())
+                
+            p1 = getattr(self, 'drag_start_pos', vb.mapSceneToView(ev.buttonDownScenePos()))
+            p2 = vb.mapSceneToView(ev.scenePos())
+            
+            rect = pg.QtCore.QRectF(min(p1.x(), p2.x()), min(p1.y(), p2.y()), 
+                                    abs(p2.x() - p1.x()), abs(p2.y() - p1.y()))
+            if getattr(self, 'selection_box', None) is not None:
+                self.selection_box.setRect(rect)
+            
+            if ev.isFinish():
+                if getattr(self, 'selection_box', None) is not None:
+                    self.plot_widget.removeItem(self.selection_box)
+                    self.selection_box = None
+                self.select_lines_in_rect(rect)
+        else:
+            self.original_drag(ev)
+
+    def select_lines_in_rect(self, rect):
+        if self.norm_matrix is None:
+            return
+            
+        xmin, xmax = rect.left(), rect.right()
+        ymin, ymax = rect.top(), rect.bottom()
+        
+        num_rows, num_cols = self.norm_matrix.shape
+        start_c = max(0, int(np.floor(xmin)))
+        end_c = min(num_cols - 1, int(np.ceil(xmax)))
+        
+        selected_mask = np.zeros(num_rows, dtype=bool)
+        
+        for c in range(start_c, end_c):
+            y_c = self.norm_matrix[:, c]
+            y_next = self.norm_matrix[:, c+1]
+            
+            seg_xmin = max(c, xmin)
+            seg_xmax = min(c+1, xmax)
+            
+            if seg_xmin > seg_xmax:
+                continue
+                
+            frac_min = seg_xmin - c
+            frac_max = seg_xmax - c
+            
+            y_at_xmin = y_c + frac_min * (y_next - y_c)
+            y_at_xmax = y_c + frac_max * (y_next - y_c)
+            
+            max_y = np.maximum(y_at_xmin, y_at_xmax)
+            min_y = np.minimum(y_at_xmin, y_at_xmax)
+            
+            intersects = (max_y >= ymin) & (min_y <= ymax)
+            selected_mask |= intersects
+            
+        selected_indices = np.where(selected_mask)[0]
+        
+        if len(selected_indices) > 0:
+            if len(selected_indices) == 1:
+                self.highlight_line(selected_indices[0])
+            else:
+                self.highlight_multiple_lines(selected_indices)
+        else:
+            self.clear_highlight()
+
+    def highlight_multiple_lines(self, indices):
+        self.clear_highlight()
+        
+        num_cols = self.norm_matrix.shape[1]
+        x_template = np.arange(num_cols, dtype=float)
+        x_template = np.append(x_template, np.nan)
+        
+        y_group = np.zeros((num_cols + 1, len(indices)), dtype=float)
+        for col_idx in range(num_cols):
+            y_group[col_idx, :] = self.norm_matrix[indices, col_idx]
+        y_group[-1, :] = np.nan
+        
+        y_flat = y_group.flatten('F')
+        x_flat = np.tile(x_template, len(indices))
+        
+        pen = pg.mkPen('r', width=3)
+        self.highlight_curve = pg.PlotDataItem(x_flat, y_flat, pen=pen, connect='finite')
+        self.highlight_curve.setZValue(1000)
+        self.plot_widget.addItem(self.highlight_curve)
+        
+        text = f"{len(indices)} lines selected"
+        self.highlight_text = pg.TextItem(text, fill=pg.mkBrush(0, 0, 0, 200), color='w')
+        self.highlight_text.setZValue(1001)
+        self.highlight_text.setPos(0, 1.05)
+        self.plot_widget.addItem(self.highlight_text)
 
     def on_mouse_clicked(self, ev):
         if ev.button() != Qt.MouseButton.LeftButton:
