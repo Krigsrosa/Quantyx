@@ -19,6 +19,95 @@ class ParallelPlotWidget(QWidget):
         self.plot_widget.getAxis('right').setStyle(showValues=False)
         self.plot_widget.getAxis('top').setStyle(showValues=False)
         self.layout.addWidget(self.plot_widget)
+        
+        self.plot_widget.scene().sigMouseClicked.connect(self.on_mouse_clicked)
+        self.norm_matrix = None
+        self.plot_df_orig = None
+        self.valid_cols = []
+        self.highlight_curve = None
+        self.highlight_text = None
+
+    def on_mouse_clicked(self, ev):
+        if ev.button() != Qt.MouseButton.LeftButton:
+            return
+            
+        if self.norm_matrix is None:
+            return
+            
+        vb = self.plot_widget.plotItem.vb
+        if not vb.sceneBoundingRect().contains(ev.scenePos()):
+            return
+            
+        pos = vb.mapSceneToView(ev.scenePos())
+        mx, my = pos.x(), pos.y()
+        
+        num_cols = self.norm_matrix.shape[1]
+        
+        if mx < 0 or mx > num_cols - 1:
+            self.clear_highlight()
+            return
+            
+        x0 = int(np.floor(mx))
+        x1 = int(np.ceil(mx))
+        
+        if x0 == x1:
+            if x1 < num_cols - 1:
+                x1 += 1
+            elif x0 > 0:
+                x0 -= 1
+                
+        y0 = self.norm_matrix[:, x0]
+        y1 = self.norm_matrix[:, x1]
+        
+        fraction = mx - x0
+        y_interp = y0 + fraction * (y1 - y0)
+        
+        dist = np.abs(y_interp - my)
+        min_idx = np.argmin(dist)
+        
+        if dist[min_idx] < 0.05:
+            self.highlight_line(min_idx)
+        else:
+            self.clear_highlight()
+
+    def clear_highlight(self):
+        if self.highlight_curve:
+            self.plot_widget.removeItem(self.highlight_curve)
+            self.highlight_curve = None
+        if self.highlight_text:
+            self.plot_widget.removeItem(self.highlight_text)
+            self.highlight_text = None
+
+    def highlight_line(self, idx):
+        self.clear_highlight()
+            
+        y_vals = self.norm_matrix[idx, :]
+        x_vals = np.arange(len(y_vals))
+        
+        pen = pg.mkPen('r', width=4)
+        self.highlight_curve = pg.PlotDataItem(x_vals, y_vals, pen=pen)
+        self.highlight_curve.setZValue(1000)
+        self.plot_widget.addItem(self.highlight_curve)
+        
+        row_data = self.plot_df_orig.iloc[idx]
+        lines = []
+        for c in self.valid_cols:
+            val = row_data[c]
+            lines.append(f"{c}: {val:.4g}" if isinstance(val, (int, float)) else f"{c}: {val}")
+            
+        # If there's a class column, show it too
+        if hasattr(self, 'class_col') and self.class_col and self.class_col in row_data:
+            val = row_data[self.class_col]
+            lines.insert(0, f"Class ({self.class_col}): {val:.4g}" if isinstance(val, (int, float)) else f"Class ({self.class_col}): {val}")
+            
+        text = "\n".join(lines)
+        
+        self.highlight_text = pg.TextItem(text, fill=pg.mkBrush(0, 0, 0, 200), color='w')
+        self.highlight_text.setZValue(1001)
+        
+        # Position slightly to the right of the first point, or left of the last point depending on where clicked
+        self.highlight_text.setPos(x_vals[0], y_vals[0])
+        self.plot_widget.addItem(self.highlight_text)
 
     def plot_data(self, df, selected_cols=None, class_col=None, props=None):
         self.plot_widget.clear()
@@ -66,6 +155,12 @@ class ParallelPlotWidget(QWidget):
                 
         num_cols = len(valid_cols)
         num_rows = len(plot_df)
+        
+        self.norm_matrix = np.column_stack(norm_data)
+        self.plot_df_orig = plot_df.copy()
+        self.valid_cols = valid_cols
+        self.class_col = class_col if has_class else None
+        self.clear_highlight()
         
         x_template = np.arange(num_cols, dtype=float)
         x_template = np.append(x_template, np.nan)
