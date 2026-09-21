@@ -1,35 +1,20 @@
 @echo off
-chcp 65001 >nul
-color 0A
-title Quantyx Builder
 
-:menu
-cls
-echo ==========================================================
-echo               QUANTYX - OPCOES DE BUILD
-echo ==========================================================
-echo.
-echo Escolha o tipo de empacotamento desejado:
-echo.
-echo  [1] PyInstaller (One-Dir)  - Mais rapido p/ testes
-echo  [2] PyInstaller (One-File) - Unico .exe (pode ser lento)
-echo  [3] Sair
-echo.
-set /p op=Digite a opcao desejada [1/2/3]: 
-
-if "%op%"=="1" goto onedir
-if "%op%"=="2" goto onefile
-if "%op%"=="3" goto exit
-goto menu
-
-:onedir
-cls
 echo ===================================================
-echo   Construindo PyInstaller (One-Dir)...
+echo   Compilando PyTab com PyInstaller (OneFile)
 echo ===================================================
-call cd %~dp0
+
+echo.
+echo [1/4] Ativando o ambiente virtual...
+cd /d %~dp0
 call .venv\Scripts\activate.bat
+
+echo.
+echo [2/4] Instalando o PyInstaller...
 pip install pyinstaller
+
+echo.
+echo [3/4] Iniciando a build do aplicativo (Modo Diretorio)...
 python -m PyInstaller --name "Quantyx" ^
   --onedir ^
   --noconfirm ^
@@ -47,62 +32,25 @@ python -m PyInstaller --name "Quantyx" ^
   --add-data "ui;ui" ^
   --add-data "utils;utils" ^
   --add-data "widgets;widgets" ^
-  --collect-all PyQt6 ^
   --collect-all pandas ^
   --collect-all numpy ^
   --collect-all pyqtgraph ^
   --collect-all scipy ^
   --collect-all sklearn ^
-  --collect-all plotly ^
+  --collect-all pyarrow ^
+  --collect-all fastparquet ^
   --collect-all openpyxl ^
   --collect-all pptx ^
+  --collect-all xgboost ^
+  --collect-all databricks ^
   main.py
+
+echo.
 echo ===================================================
-echo Concluido! A pasta esta em "dist\Quantyx"
+echo   Build concluida com sucesso!
+echo   A pasta do aplicativo esta em "dist\Quantyx"
+echo.
+echo   Para gerar o Instalador do Windows:
+echo   Rode o script "create_installer.bat"
 echo ===================================================
 pause
-goto menu
-
-:onefile
-cls
-echo ===================================================
-echo   Construindo PyInstaller (One-File)...
-echo ===================================================
-call cd %~dp0
-call .venv\Scripts\activate.bat
-pip install pyinstaller
-python -m PyInstaller --name "Quantyx" ^
-  --onefile ^
-  --noconfirm ^
-  --windowed ^
-  --icon="img\app-ico-1.ico" ^
-  --add-data "template\GlobalRD_Template.pptx;template" ^
-  --add-data "img\app-ico-1.ico;img" ^
-  --add-data "analysis;analysis" ^
-  --add-data "data;data" ^
-  --add-data "exports;exports" ^
-  --add-data "plots;plots" ^
-  --add-data "resources;resources" ^
-  --add-data "settings;settings" ^
-  --add-data "temp_report_images;temp_report_images" ^
-  --add-data "ui;ui" ^
-  --add-data "utils;utils" ^
-  --add-data "widgets;widgets" ^
-  --collect-all PyQt6 ^
-  --collect-all pandas ^
-  --collect-all numpy ^
-  --collect-all pyqtgraph ^
-  --collect-all scipy ^
-  --collect-all sklearn ^
-  --collect-all plotly ^
-  --collect-all openpyxl ^
-  --collect-all pptx ^
-  main.py
-echo ===================================================
-echo Concluido! O executavel esta em "dist\Quantyx.exe"
-echo ===================================================
-pause
-goto menu
-
-:exit
-exit
