@@ -11,11 +11,11 @@ call .venv\Scripts\activate.bat
 
 echo.
 echo [2/4] Instalando o PyInstaller...
-pip install pyinstaller
+.venv\Scripts\pip.exe install pyinstaller
 
 echo.
 echo [3/4] Iniciando a build do aplicativo (Modo Diretorio)...
-python -m PyInstaller --name "Quantyx" ^
+.venv\Scripts\python.exe -m PyInstaller --name "Quantyx" ^
   --onedir ^
   --noconfirm ^
   --windowed ^
