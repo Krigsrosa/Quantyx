@@ -24,7 +24,8 @@ HELP_HTML = """
 <p><i>Note: To prevent freezing with large datasets, plots do not render automatically. Select your variables and click <b>Update Plot</b> to render the graph.</i></p>
 <ul>
     <li><b>Scatter Plot:</b> Render huge datasets fast. Supports color-coding by categories.</li>
-    <li><b>Line Plot:</b> Great for time-series. Automatically detects datetime columns and formats the X-axis ticks.</li>
+    <li><b>Line Plot:</b> Great for time-series. Automatically detects datetime columns and formats the X-axis dynamically to prevent overlap.</li>
+    <li><b>Color Rules:</b> You can color-code your plots based on mathematical conditions without modifying the dataset. Just type a rule in the <i>Color by</i> text box (e.g., <code>Temperature > 100</code>).</li>
     <li><b>Histogram & Bar Plot:</b> Explore distributions and counts. The Bar Plot specifically supports categorical grouping on the X-axis.</li>
     <li><b>Boxplot:</b> Analyze statistical spread. Check multiple boxes in the <i>All Variables</i> list to create nested/multi-level X-axis groups!</li>
     <li><b>Parallel Coordinates:</b> Select multiple numeric variables to map multidimensional relationships. Features full interactivity:
@@ -38,18 +39,25 @@ HELP_HTML = """
 
 <h2>4. Customizing Plots (Plot Properties)</h2>
 <ul>
+    <li><b>Tabified Panels:</b> Note that the <b>Filters</b> and <b>Plot Properties</b> panels share the same space on the right sidebar to maximize plot visibility. Click their respective tabs at the bottom to switch between them.</li>
     <li><b>Titles, Labels & Limits:</b> Set custom titles, axis labels, and draw horizontal dashed Limit Lines.</li>
     <li><b>Boxplot Annotations:</b> Toggle exact statistical values (Means, Q1, Q3) directly over the boxes, or enable the <i>Show X-Axis Data Table</i> for Minitab-style statistical tables (cleanly aligned under the axis with multiple nested variables).</li>
     <li><b>Dynamic Theming:</b> Change the base palette, regression line colors, and override individual category colors using the dynamic color pickers at the bottom of the properties panel.</li>
 </ul>
 
 <h2>5. Filtering Data</h2>
-<p>The <b>Filters</b> dock allows you to slice your dataset dynamically. Set numeric conditions (e.g., &gt;, &lt;) or check/uncheck categorical values. All plots and tables update automatically to reflect the subset.</p>
+<p>The <b>Filters</b> dock allows you to slice your dataset dynamically. All plots and tables update automatically to reflect the subset.</p>
+<ul>
+    <li><b>Numeric Filters:</b> Set mathematical conditions (e.g., &gt;, &lt;).</li>
+    <li><b>Categorical Filters:</b> Check or uncheck values. Uses cascading logic (filtering one column automatically prunes the available options for subsequent columns). Use the <i>Select All / Deselect All</i> buttons for speed.</li>
+    <li><b>Date Filters:</b> When selecting a datetime column, the filter panel automatically adapts to a calendar-based Date Range picker for seamless slicing.</li>
+</ul>
 
 <h2>6. Machine Learning</h2>
 <p>Navigate to the <i>Machine Learning</i> tab to build and deploy predictive models directly within Quantyx:</p>
 <ul>
     <li><b>Supervised Learning:</b> Train classification or regression models using Random Forest or XGBoost. Select your <i>Target</i> and hit <b>Train Model</b>. View confusion matrices, residual plots, and R² scores.</li>
+    <li><b>Prediction & Inference:</b> Use the <b>Predict</b> button to run new data through a loaded or trained model (even if the dataset lacks the Target column). The predictions can then be saved using <b>Download Results</b>.</li>
     <li><b>Unsupervised Learning:</b> Use K-Means Clustering or PCA to find hidden patterns.</li>
     <li><b>Auto-Tune:</b> Automatically optimize model hyperparameters using GridSearchCV.</li>
     <li><b>Feature Importance:</b> Extract the most critical variables driving your model's predictions.</li>
@@ -66,7 +74,7 @@ HELP_HTML = """
 <ul>
     <li><b>Generate PowerPoint:</b> Click the 📸 camera icon in the toolbar to snapshot plots. Inside the <i>Presentation Gallery</i> tab, you can select your preferred custom template from the dropdown and click "Generate PowerPoint" to compile a professional <code>.pptx</code> presentation automatically.</li>
     <li><b>Export Single Plots:</b> Go to <i>File -> Export Plot (PNG/PDF)</i> for high-res images.</li>
-    <li><b>Export Filtered Data:</b> Save your cleaned, preprocessed, and filtered dataset to a new CSV.</li>
+    <li><b>Export Filtered Data:</b> Save your cleaned, preprocessed, and filtered dataset to a new Excel file (<code>.xlsx</code>).</li>
 </ul>
 """
 

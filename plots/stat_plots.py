@@ -290,7 +290,12 @@ class BoxPlotWidget(QWidget):
             axis = self.plot_widget.getAxis('bottom')
             self.row_header_label.setParentItem(axis)
             rect = self.row_header_label.boundingRect()
-            y_offset = max(0, axis.style.get('tickLength', 5)) + axis.style.get('tickTextOffset', 5) - 3
+            
+            tick_offset = axis.style.get('tickTextOffset', 5)
+            if isinstance(tick_offset, (list, tuple)):
+                tick_offset = tick_offset[1]
+                
+            y_offset = max(0, axis.style.get('tickLength', 5)) + tick_offset - 3
             self.row_header_label.setPos(-rect.width() - 5, y_offset)
             
             left_axis = self.plot_widget.getAxis('left')

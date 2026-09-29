@@ -140,9 +140,13 @@ class MachineLearningWidget(QWidget):
         row1.addWidget(self.spin_lr)
         row1.addStretch()
         
+        self.btn_predict = QPushButton("Predict")
+        self.btn_predict.clicked.connect(self.predict_only)
+        
         row2.addWidget(self.btn_train)
         row2.addWidget(self.btn_autotune)
         row2.addWidget(self.btn_importance)
+        row2.addWidget(self.btn_predict)
         row2.addWidget(self.btn_save)
         row2.addWidget(self.btn_load)
         row2.addWidget(self.btn_download)
@@ -181,6 +185,7 @@ class MachineLearningWidget(QWidget):
         self.w_target.setVisible(not is_unsup)
         self.btn_train.setVisible(not is_unsup)
         self.btn_autotune.setVisible(not is_unsup)
+        self.btn_predict.setVisible(not is_unsup)
         self.btn_save.setVisible(not is_unsup)
         self.btn_load.setVisible(not is_unsup)
         
@@ -619,3 +624,30 @@ class MachineLearningWidget(QWidget):
         self.btn_autotune.setEnabled(True)
         self.btn_autotune.setText("✨ Auto-Tune")
         QMessageBox.critical(self, "Auto-Tune Error", str(err_tuple[1]))
+
+    def predict_only(self):
+        if not self.trained_model:
+            QMessageBox.warning(self, "Error", "No trained model available. Train or Load a model first.")
+            return
+            
+        clean_df, valid_features, err = self._get_clean_data(for_training=False)
+        if err:
+            QMessageBox.warning(self, "Error", err)
+            return
+            
+        if self.model_features and not set(self.model_features).issubset(set(valid_features)):
+            missing = set(self.model_features) - set(valid_features)
+            QMessageBox.warning(self, "Feature Mismatch", f"Missing features required for prediction:\n{', '.join(missing)}")
+            return
+            
+        try:
+            X = clean_df[self.model_features].values
+            y_pred = self.trained_model.predict(X)
+            
+            res_df = clean_df.copy()
+            res_df[f"Predicted_{getattr(self, 'model_target', 'Target')}"] = y_pred
+            self.last_results_df = res_df
+            
+            QMessageBox.information(self, "Success", "Predictions generated successfully!\nClick 'Download Results' to save the output CSV.")
+        except Exception as e:
+            QMessageBox.critical(self, "Prediction Error", str(e))
