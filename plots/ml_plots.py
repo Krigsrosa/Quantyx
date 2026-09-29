@@ -143,8 +143,15 @@ class MachineLearningWidget(QWidget):
         self.btn_predict = QPushButton("Predict")
         self.btn_predict.clicked.connect(self.predict_only)
         
+        from PyQt6.QtWidgets import QProgressBar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0) # Indeterminate mode
+        self.progress_bar.setMaximumWidth(150)
+        self.progress_bar.hide()
+        
         row2.addWidget(self.btn_train)
         row2.addWidget(self.btn_autotune)
+        row2.addWidget(self.progress_bar)
         row2.addWidget(self.btn_importance)
         row2.addWidget(self.btn_predict)
         row2.addWidget(self.btn_save)
@@ -374,6 +381,7 @@ class MachineLearningWidget(QWidget):
                 
         self.btn_train.setEnabled(False)
         self.btn_train.setText("Training...")
+        self.progress_bar.show()
         
         worker = Worker(self._do_train_model, X, y, clean_df, valid_features, target, task, tech)
         worker.signals.result.connect(self._on_train_success)
@@ -406,12 +414,14 @@ class MachineLearningWidget(QWidget):
         
         self.btn_train.setEnabled(True)
         self.btn_train.setText("Train Model")
+        self.progress_bar.hide()
         QMessageBox.information(self, "Success", "Model trained successfully!")
         self._plot_supervised_inference(clean_df, valid_features, target, y_true)
 
     def _on_train_error(self, err_tuple):
         self.btn_train.setEnabled(True)
         self.btn_train.setText("Train Model")
+        self.progress_bar.hide()
         QMessageBox.critical(self, "Training Error", str(err_tuple[1]))
 
     def _plot_supervised_inference(self, clean_df=None, valid_features=None, target=None, y_true=None):
@@ -595,6 +605,7 @@ class MachineLearningWidget(QWidget):
             
         self.btn_autotune.setEnabled(False)
         self.btn_autotune.setText("Tuning...")
+        self.progress_bar.show()
         
         worker = Worker(self._do_auto_tune, model, param_dist, X, y, tech)
         worker.signals.result.connect(self._on_tune_success)
@@ -610,6 +621,7 @@ class MachineLearningWidget(QWidget):
     def _on_tune_success(self, best):
         self.btn_autotune.setEnabled(True)
         self.btn_autotune.setText("✨ Auto-Tune")
+        self.progress_bar.hide()
         if 'n_neighbors' in best: self.spin_k.setValue(int(best['n_neighbors']))
         if 'n_estimators' in best: self.spin_trees.setValue(int(best['n_estimators']))
         if 'max_depth' in best:
@@ -623,6 +635,7 @@ class MachineLearningWidget(QWidget):
     def _on_tune_error(self, err_tuple):
         self.btn_autotune.setEnabled(True)
         self.btn_autotune.setText("✨ Auto-Tune")
+        self.progress_bar.hide()
         QMessageBox.critical(self, "Auto-Tune Error", str(err_tuple[1]))
 
     def predict_only(self):

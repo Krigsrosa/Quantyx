@@ -32,9 +32,10 @@ class FilterPanel(QWidget):
         num_layout.addWidget(self.combo_cond)
         self.val_input = QLineEdit()
         num_layout.addWidget(self.val_input)
-        self.btn_add_num = QPushButton("Add Numeric Filter")
+        self.btn_add_num = QPushButton("Apply Numeric Filter")
         self.btn_add_num.clicked.connect(self.add_numeric_filter)
         num_layout.addWidget(self.btn_add_num)
+        num_layout.addStretch()
         self.stacked.addWidget(self.page_num)
         
         # Page 1: Categorical
@@ -74,6 +75,7 @@ class FilterPanel(QWidget):
         self.btn_add_date = QPushButton("Apply Date Filter")
         self.btn_add_date.clicked.connect(self.add_date_filter)
         date_layout.addWidget(self.btn_add_date)
+        date_layout.addStretch()
         self.stacked.addWidget(self.page_date)
         
         self.layout.addWidget(self.stacked)

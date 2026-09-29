@@ -32,8 +32,8 @@ Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers fast visua
 *   **Model Evaluation:** View interactive Confusion Matrices, Residual Plots, R² scores, and Feature Importance graphs.
 *   **Deployment:** Save your trained models as .pkl files and reload them later to run predictions on new data.
 
-### 📸 Presentation Gallery & Export
-*   **PowerPoint Automation:** Take snapshots of your plots using the 📸 camera tool. Go to the *Presentation Gallery*, select your custom company .pptx template, and automatically generate a professional presentation report.
+### 📸 Gallery & Export
+*   **PowerPoint Automation:** Take snapshots of your plots using the 📸 camera tool. Go to the *Gallery* dock on the right sidebar, select your custom company .pptx template, and automatically generate a professional presentation report.
 *   **High-Res Export:** Export individual plots as .png or .pdf.
 *   **Export Filtered Data:** Save your cleaned and filtered dataset to a new CSV file.
 

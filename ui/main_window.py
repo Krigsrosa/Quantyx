@@ -65,7 +65,6 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.plot_ml, "Machine Learning")
         
         self.report_panel = ReportPanel()
-        self.tab_widget.addTab(self.report_panel, "Presentation Gallery")
         
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         self.plot_ml.model_loaded.connect(self.on_ml_model_loaded)
@@ -158,8 +157,14 @@ class MainWindow(QMainWindow):
         
         self.props_panel.properties_changed.connect(self.on_properties_changed)
         
-        # Tabify Filter and Properties
+        # 4.5 Gallery Dock (Right)
+        self.gallery_dock = QDockWidget("Gallery", self)
+        self.gallery_dock.setWidget(self.report_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.gallery_dock)
+        
+        # Tabify Filter, Properties, and Gallery
         self.tabifyDockWidget(self.filter_dock, self.props_dock)
+        self.tabifyDockWidget(self.props_dock, self.gallery_dock)
         self.props_dock.raise_()
         
         # 5. Preprocessing Dock (Right, hidden by default)
@@ -699,7 +704,7 @@ class MainWindow(QMainWindow):
                 pixmap.save(img_path, 'PNG')
                 
                 self.report_panel.add_image(img_path)
-                self.statusBar().showMessage(f"Plot added to Presentation Gallery.")
+                self.statusBar().showMessage(f"Plot added to Gallery.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to add plot to report:\n{str(e)}")
 

@@ -299,8 +299,8 @@ class BoxPlotWidget(QWidget):
             self.row_header_label.setPos(-rect.width() - 5, y_offset)
             
             left_axis = self.plot_widget.getAxis('left')
-            if left_axis.width() < rect.width() + 15:
-                left_axis.setMinimumWidth(rect.width() + 15)
+            left_axis.setWidth(rect.width() + 30)
+            axis.setHeight(rect.height() + y_offset + 15)
                 
         else:
             self.plot_widget.setLabel('bottom', props.get('custom_xlabel', x_val if x_val else ''))

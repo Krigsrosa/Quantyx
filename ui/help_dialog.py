@@ -70,9 +70,9 @@ HELP_HTML = """
     <li><b>Template Center:</b> Manage your PowerPoint templates directly in <i>Settings -> Open Template Directory</i> to add or remove your own `.pptx` files.</li>
 </ul>
 
-<h2>8. Presentation Gallery & Exporting</h2>
+<h2>8. Gallery & Exporting</h2>
 <ul>
-    <li><b>Generate PowerPoint:</b> Click the 📸 camera icon in the toolbar to snapshot plots. Inside the <i>Presentation Gallery</i> tab, you can select your preferred custom template from the dropdown and click "Generate PowerPoint" to compile a professional <code>.pptx</code> presentation automatically.</li>
+    <li><b>Generate PowerPoint:</b> Click the 📸 camera icon in the toolbar to snapshot plots. Inside the <i>Gallery</i> tab on the right sidebar, you can select your preferred custom template from the dropdown and click "Generate PowerPoint" to compile a professional <code>.pptx</code> presentation automatically.</li>
     <li><b>Export Single Plots:</b> Go to <i>File -> Export Plot (PNG/PDF)</i> for high-res images.</li>
     <li><b>Export Filtered Data:</b> Save your cleaned, preprocessed, and filtered dataset to a new Excel file (<code>.xlsx</code>).</li>
 </ul>
