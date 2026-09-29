@@ -17,12 +17,7 @@ class ScatterPlotWidget(QWidget):
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.layout.addWidget(self.plot_widget, stretch=1)
         
-        from PyQt6.QtWidgets import QListWidget
-        self.legend_list = QListWidget()
-        self.legend_list.setMaximumWidth(180)
-        self.legend_list.hide()
-        self.layout.addWidget(self.legend_list)
-        
+        self.legend = None
         self.regression_line = None
         
     def _clear_legend(self):
@@ -100,11 +95,9 @@ class ScatterPlotWidget(QWidget):
             unique_cats = valid_df[color_col].unique()
             cat_colors = props.get('cat_colors', {})
             
-            # Use Qt ListWidget for legend
-            self.legend_list.clear()
-            self.legend_list.show()
+            self._clear_legend()
+            self.legend = self.plot_widget.addLegend(offset=(10, 10))
             
-            from PyQt6.QtGui import QPixmap, QPainter, QColor, QIcon
             from PyQt6.QtCore import Qt
             
             for i, cat in enumerate(unique_cats):
@@ -115,21 +108,8 @@ class ScatterPlotWidget(QWidget):
                 self.plot_widget.plot(valid_df[mask][x_col].values, valid_df[mask][y_col].values, 
                                       pen=None, symbol='o', symbolSize=props.get('point_size', 5), 
                                       symbolBrush=brush, name=str(cat))
-                                      
-                # Create legend item
-                item = QListWidgetItem(str(cat))
-                pixmap = QPixmap(16, 16)
-                pixmap.fill(Qt.GlobalColor.transparent)
-                painter = QPainter(pixmap)
-                painter.setBrush(QColor(hex_color))
-                painter.setPen(Qt.GlobalColor.black)
-                painter.drawEllipse(2, 2, 12, 12)
-                painter.end()
-                item.setIcon(QIcon(pixmap))
-                self.legend_list.addItem(item)
         else:
-            self.legend_list.hide()
-            self.legend_list.clear()
+            self._clear_legend()
             
             brush = pg.mkBrush(c_base)
             self.plot_widget.plot(valid_df[x_col].values, valid_df[y_col].values, 

@@ -38,7 +38,8 @@ class ParallelPlotWidget(QWidget):
             
             if ev.isStart():
                 if getattr(self, 'selection_box', None) is None:
-                    self.selection_box = pg.QtGui.QGraphicsRectItem()
+                    from PyQt6.QtWidgets import QGraphicsRectItem
+                    self.selection_box = QGraphicsRectItem()
                     self.selection_box.setPen(pg.mkPen('y', width=2, style=Qt.PenStyle.DashLine))
                     self.selection_box.setBrush(pg.mkBrush(255, 255, 0, 50))
                     self.selection_box.setZValue(1e6)

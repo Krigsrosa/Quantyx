@@ -37,8 +37,18 @@ class FormattedAxisItem(pg.AxisItem):
     def __init__(self, orientation, decimals=2, **kwargs):
         super().__init__(orientation, **kwargs)
         self.decimals = decimals
+        self.is_date = False
         
     def tickStrings(self, values, scale, spacing):
+        if getattr(self, 'is_date', False):
+            import datetime
+            strings = []
+            for v in values:
+                try:
+                    strings.append(datetime.datetime.fromtimestamp(v).strftime('%Y-%m-%d'))
+                except:
+                    strings.append("")
+            return strings
         try:
             return [f"{v:.{self.decimals}f}" for v in values]
         except:
@@ -280,12 +290,17 @@ class BoxPlotWidget(QWidget):
             axis = self.plot_widget.getAxis('bottom')
             self.row_header_label.setParentItem(axis)
             rect = self.row_header_label.boundingRect()
-            y_offset = max(0, axis.style.get('tickLength', 5)) + axis.style.get('tickTextOffset', 5) - 3
+            
+            tick_offset = axis.style.get('tickTextOffset', 5)
+            if isinstance(tick_offset, (list, tuple)):
+                tick_offset = tick_offset[1]
+                
+            y_offset = max(0, axis.style.get('tickLength', 5)) + tick_offset - 3
             self.row_header_label.setPos(-rect.width() - 5, y_offset)
             
             left_axis = self.plot_widget.getAxis('left')
-            if left_axis.width() < rect.width() + 15:
-                left_axis.setMinimumWidth(rect.width() + 15)
+            left_axis.setWidth(rect.width() + 30)
+            axis.setHeight(rect.height() + y_offset + 15)
                 
         else:
             self.plot_widget.setLabel('bottom', props.get('custom_xlabel', x_val if x_val else ''))
@@ -527,14 +542,14 @@ class LinePlotWidget(QWidget):
                 is_date = True
             except: pass
             
+        self.axis_x.is_date = is_date
+        
         if is_date:
-            x_data = valid_df[x_col].astype(np.int64) // 10**9 # seconds for pyqtgraph
-            axis = pg.DateAxisItem(orientation='bottom')
-            self.plot_widget.setAxisItems({'bottom': axis})
+            x_data = valid_df[x_col].astype('int64').to_numpy() // 10**9 # seconds for pyqtgraph
         else:
-            x_data = valid_df[x_col].values
+            x_data = valid_df[x_col].to_numpy()
             
-        self.plot_widget.showGrid(x=props.get('show_grid', True), y=props.get('show_grid', True), alpha=0.3)
+        self.plot_widget.showGrid(x=props.get('show_grid_x', True), y=props.get('show_grid_y', True), alpha=0.3)
         self.plot_widget.setTitle(props.get('custom_title', f"Line Plot: {y_col} over {x_col}"))
         self.plot_widget.setLabel('bottom', props.get('custom_xlabel', x_col))
         self.plot_widget.setLabel('left', props.get('custom_ylabel', y_col))
@@ -545,7 +560,7 @@ class LinePlotWidget(QWidget):
             i = 0
             for name, group in groups:
                 if is_date:
-                    gx = group[x_col].astype(np.int64) // 10**9
+                    gx = group[x_col].astype('int64').to_numpy() // 10**9
                 else:
                     gx = group[x_col].values
                 color = get_cat_color(name, props, i)

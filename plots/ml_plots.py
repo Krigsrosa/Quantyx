@@ -140,9 +140,20 @@ class MachineLearningWidget(QWidget):
         row1.addWidget(self.spin_lr)
         row1.addStretch()
         
+        self.btn_predict = QPushButton("Predict")
+        self.btn_predict.clicked.connect(self.predict_only)
+        
+        from PyQt6.QtWidgets import QProgressBar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0) # Indeterminate mode
+        self.progress_bar.setMaximumWidth(150)
+        self.progress_bar.hide()
+        
         row2.addWidget(self.btn_train)
         row2.addWidget(self.btn_autotune)
+        row2.addWidget(self.progress_bar)
         row2.addWidget(self.btn_importance)
+        row2.addWidget(self.btn_predict)
         row2.addWidget(self.btn_save)
         row2.addWidget(self.btn_load)
         row2.addWidget(self.btn_download)
@@ -181,6 +192,7 @@ class MachineLearningWidget(QWidget):
         self.w_target.setVisible(not is_unsup)
         self.btn_train.setVisible(not is_unsup)
         self.btn_autotune.setVisible(not is_unsup)
+        self.btn_predict.setVisible(not is_unsup)
         self.btn_save.setVisible(not is_unsup)
         self.btn_load.setVisible(not is_unsup)
         
@@ -369,6 +381,7 @@ class MachineLearningWidget(QWidget):
                 
         self.btn_train.setEnabled(False)
         self.btn_train.setText("Training...")
+        self.progress_bar.show()
         
         worker = Worker(self._do_train_model, X, y, clean_df, valid_features, target, task, tech)
         worker.signals.result.connect(self._on_train_success)
@@ -401,12 +414,14 @@ class MachineLearningWidget(QWidget):
         
         self.btn_train.setEnabled(True)
         self.btn_train.setText("Train Model")
+        self.progress_bar.hide()
         QMessageBox.information(self, "Success", "Model trained successfully!")
         self._plot_supervised_inference(clean_df, valid_features, target, y_true)
 
     def _on_train_error(self, err_tuple):
         self.btn_train.setEnabled(True)
         self.btn_train.setText("Train Model")
+        self.progress_bar.hide()
         QMessageBox.critical(self, "Training Error", str(err_tuple[1]))
 
     def _plot_supervised_inference(self, clean_df=None, valid_features=None, target=None, y_true=None):
@@ -590,6 +605,7 @@ class MachineLearningWidget(QWidget):
             
         self.btn_autotune.setEnabled(False)
         self.btn_autotune.setText("Tuning...")
+        self.progress_bar.show()
         
         worker = Worker(self._do_auto_tune, model, param_dist, X, y, tech)
         worker.signals.result.connect(self._on_tune_success)
@@ -605,6 +621,7 @@ class MachineLearningWidget(QWidget):
     def _on_tune_success(self, best):
         self.btn_autotune.setEnabled(True)
         self.btn_autotune.setText("✨ Auto-Tune")
+        self.progress_bar.hide()
         if 'n_neighbors' in best: self.spin_k.setValue(int(best['n_neighbors']))
         if 'n_estimators' in best: self.spin_trees.setValue(int(best['n_estimators']))
         if 'max_depth' in best:
@@ -618,4 +635,32 @@ class MachineLearningWidget(QWidget):
     def _on_tune_error(self, err_tuple):
         self.btn_autotune.setEnabled(True)
         self.btn_autotune.setText("✨ Auto-Tune")
+        self.progress_bar.hide()
         QMessageBox.critical(self, "Auto-Tune Error", str(err_tuple[1]))
+
+    def predict_only(self):
+        if not self.trained_model:
+            QMessageBox.warning(self, "Error", "No trained model available. Train or Load a model first.")
+            return
+            
+        clean_df, valid_features, err = self._get_clean_data(for_training=False)
+        if err:
+            QMessageBox.warning(self, "Error", err)
+            return
+            
+        if self.model_features and not set(self.model_features).issubset(set(valid_features)):
+            missing = set(self.model_features) - set(valid_features)
+            QMessageBox.warning(self, "Feature Mismatch", f"Missing features required for prediction:\n{', '.join(missing)}")
+            return
+            
+        try:
+            X = clean_df[self.model_features].values
+            y_pred = self.trained_model.predict(X)
+            
+            res_df = clean_df.copy()
+            res_df[f"Predicted_{getattr(self, 'model_target', 'Target')}"] = y_pred
+            self.last_results_df = res_df
+            
+            QMessageBox.information(self, "Success", "Predictions generated successfully!\nClick 'Download Results' to save the output CSV.")
+        except Exception as e:
+            QMessageBox.critical(self, "Prediction Error", str(e))
