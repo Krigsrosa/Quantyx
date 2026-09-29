@@ -160,19 +160,6 @@ class PropertiesPanel(QWidget):
         size_layout.addWidget(self.spin_size)
         aes_layout.addLayout(size_layout)
         
-        # Grid Toggle
-        grid_layout = QHBoxLayout()
-        self.chk_grid_x = QCheckBox("Grid X")
-        self.chk_grid_x.setChecked(True)
-        self.chk_grid_x.toggled.connect(self.emit_changes)
-        grid_layout.addWidget(self.chk_grid_x)
-        
-        self.chk_grid_y = QCheckBox("Grid Y")
-        self.chk_grid_y.setChecked(True)
-        self.chk_grid_y.toggled.connect(self.emit_changes)
-        grid_layout.addWidget(self.chk_grid_y)
-        aes_layout.addLayout(grid_layout)
-        
         # Linear Regression Toggle
         self.chk_regression = QCheckBox("Linear Regression (Scatter)")
         self.chk_regression.setChecked(False)
@@ -256,10 +243,6 @@ class PropertiesPanel(QWidget):
         self.spin_size.setVisible(tab_idx in [0, 7])
         self.lbl_point_size.setVisible(tab_idx in [0, 7])
         
-        # Grid
-        self.chk_grid_x.setVisible(tab_idx in [0, 1, 2, 3, 4, 7])
-        self.chk_grid_y.setVisible(tab_idx in [0, 1, 2, 3, 4, 7])
-        
         # Palette (Theme)
         self.w_theme.setVisible(tab_idx == 6)
         
@@ -330,8 +313,8 @@ class PropertiesPanel(QWidget):
             'color_q1': self.color_q1.color,
             'color_q3': self.color_q3.color,
             'point_size': self.spin_size.value(),
-            'show_grid_x': self.chk_grid_x.isChecked(),
-            'show_grid_y': self.chk_grid_y.isChecked(),
+            'show_grid_x': True,
+            'show_grid_y': True,
             'linear_regression': self.chk_regression.isChecked(),
             'palette': self.combo_theme.currentText()
         }

@@ -23,7 +23,7 @@ class DataManager(QObject):
         
         if ext == '.csv':
             # Fast CSV reading, low_memory=False to avoid mixed type warnings on large files
-            df = pd.read_csv(file_path, low_memory=False)
+            df = pd.read_csv(file_path, sep=',', low_memory=False)
         elif ext in ['.xlsx', '.xls']:
             df = pd.read_excel(file_path)
         elif ext == '.parquet':
@@ -35,6 +35,7 @@ class DataManager(QObject):
         
         # Clean Data
         df = self.clean_dataframe(df)
+        df = self._add_index_column(df)
         return df, file_path
 
     def load_data(self, file_path):
@@ -46,7 +47,19 @@ class DataManager(QObject):
             
     def _do_load_dataframe(self, df, source_name):
         clean_df = self.clean_dataframe(df.copy())
+        clean_df = self._add_index_column(clean_df)
         return clean_df, source_name
+
+    def _add_index_column(self, df):
+        if 'index' not in [str(c).lower() for c in df.columns]:
+            date_cols = [c for c in df.columns if pd.api.types.is_datetime64_any_dtype(df[c])]
+            if date_cols:
+                try:
+                    df = df.sort_values(by=date_cols[0]).reset_index(drop=True)
+                except Exception:
+                    pass
+            df['index'] = df.index
+        return df
 
     def load_dataframe(self, df, source_name="SQL Query"):
         """Loads data directly from an existing DataFrame."""
@@ -76,6 +89,15 @@ class DataManager(QObject):
             
         for col in df.columns:
             if df[col].dtype == 'object' or pd.api.types.is_string_dtype(df[col]):
+                col_lower = str(col).lower()
+                if 'date' in col_lower or 'data' in col_lower:
+                    try:
+                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                        if df[col].notna().sum() > 0:
+                            continue
+                    except:
+                        pass
+                
                 # Vectorized string replace
                 # Only operate on actual string objects/cols safely
                 s_str = df[col].astype(str)

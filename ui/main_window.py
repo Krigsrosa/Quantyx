@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QDockWidget, QFileDialog, QMessageBox, 
                              QListWidget, QVBoxLayout, QWidget, QComboBox, QLabel, QTabWidget,
-                             QListWidgetItem, QProgressBar, QPushButton)
+                             QListWidgetItem, QProgressBar, QPushButton, QLineEdit)
 from PyQt6.QtCore import Qt, QCoreApplication, QByteArray, QBuffer, QIODevice
 from PyQt6.QtGui import QPixmap, QIcon
 import joblib
@@ -117,6 +117,10 @@ class MainWindow(QMainWindow):
         self.combo_color = QComboBox()
         var_layout.addWidget(self.combo_color)
         
+        self.edit_color_rule = QLineEdit()
+        self.edit_color_rule.setPlaceholderText("Rule e.g. TS > 1000")
+        var_layout.addWidget(self.edit_color_rule)
+        
         self.btn_update_plot = QPushButton("Update Plot")
         self.btn_update_plot.clicked.connect(self.update_plot)
         self.btn_update_plot.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 5px;")
@@ -153,6 +157,10 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.props_dock)
         
         self.props_panel.properties_changed.connect(self.on_properties_changed)
+        
+        # Tabify Filter and Properties
+        self.tabifyDockWidget(self.filter_dock, self.props_dock)
+        self.props_dock.raise_()
         
         # 5. Preprocessing Dock (Right, hidden by default)
         self.prep_dock = QDockWidget("Preprocessing Settings", self)
@@ -196,7 +204,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         
         export_data_act = file_menu.addAction("Export Filtered Data...")
-        export_data_act.triggered.connect(self.export_data_csv)
+        export_data_act.triggered.connect(self.export_data_xlsx)
         
         export_plot_png_act = file_menu.addAction("Export Plot (PNG)...")
         export_plot_png_act.triggered.connect(self.export_plot_png)
@@ -511,9 +519,23 @@ class MainWindow(QMainWindow):
         x_col = self.combo_x.currentText()
         y_col = self.combo_y.currentText()
         color_col = self.combo_color.currentText()
+        color_rule = self.edit_color_rule.text().strip()
         
         df = self.data_manager.filtered_df if self.data_manager.filtered_df is not None else self.data_manager.df
         
+        if color_rule:
+            try:
+                df = df.copy()
+                for col_name in df.columns:
+                    if " " in col_name and col_name in color_rule:
+                        if f"`{col_name}`" not in color_rule:
+                            color_rule = color_rule.replace(col_name, f"`{col_name}`")
+                df['_color_rule'] = df.eval(color_rule).astype(str)
+                color_col = '_color_rule'
+            except Exception as e:
+                from utils.logger import logger
+                logger.error(f"Error evaluating color rule: {e}")
+
         if not hasattr(self, 'last_color_col') or self.last_color_col != color_col:
             self.last_color_col = color_col
             if color_col and color_col != "None" and color_col in df.columns:
@@ -586,14 +608,16 @@ class MainWindow(QMainWindow):
         self.plot_properties = props
         self.update_plot()
         
-    def export_data_csv(self):
+    def export_data_xlsx(self):
         df = self.data_manager.filtered_df if self.data_manager.filtered_df is not None else self.data_manager.df
         if df is None or df.empty:
             QMessageBox.warning(self, "Export Error", "No data available to export.")
             return
             
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Data", "", "CSV Files (*.csv)")
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Data", "", "Excel Files (*.xlsx)")
         if file_name:
+            if not file_name.endswith('.xlsx'):
+                file_name += '.xlsx'
             from exports.exporter import export_data
             export_data(df, file_name)
             self.statusBar().showMessage(f"Data exported to {file_name}")
