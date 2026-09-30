@@ -1,4 +1,4 @@
-﻿import pandas as pd
+import pandas as pd
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
                              QTextEdit, QPushButton, QCheckBox, QMessageBox, QProgressBar)
 from PyQt6.QtCore import Qt, QSettings, QThread, pyqtSignal
@@ -74,6 +74,25 @@ class SQLDialog(QDialog):
         self.chk_save = QCheckBox("Save Credentials")
         layout.addWidget(self.chk_save)
         
+        # Saved Queries section
+        query_layout = QHBoxLayout()
+        query_layout.addWidget(QLabel("Saved Queries:"))
+        
+        from PyQt6.QtWidgets import QComboBox, QInputDialog
+        self.combo_queries = QComboBox()
+        self.combo_queries.currentIndexChanged.connect(self.on_query_selected)
+        query_layout.addWidget(self.combo_queries)
+        
+        self.btn_save_query = QPushButton("Save Query As...")
+        self.btn_save_query.clicked.connect(self.save_current_query)
+        query_layout.addWidget(self.btn_save_query)
+        
+        self.btn_delete_query = QPushButton("Delete")
+        self.btn_delete_query.clicked.connect(self.delete_current_query)
+        query_layout.addWidget(self.btn_delete_query)
+        
+        layout.addLayout(query_layout)
+        
         # Query
         layout.addWidget(QLabel("SQL Query:"))
         self.edit_query = QTextEdit()
@@ -105,6 +124,58 @@ class SQLDialog(QDialog):
             self.edit_host.setText(self.settings.value("hostname", ""))
             self.edit_path.setText(self.settings.value("http_path", ""))
             self.edit_token.setText(self.settings.value("token", ""))
+            
+        self.load_queries()
+        
+    def load_queries(self):
+        self.combo_queries.blockSignals(True)
+        self.combo_queries.clear()
+        self.combo_queries.addItem("-- Select a Query --")
+        
+        self.settings.beginGroup("queries")
+        for key in self.settings.childKeys():
+            self.combo_queries.addItem(key, self.settings.value(key))
+        self.settings.endGroup()
+        self.combo_queries.blockSignals(False)
+
+    def on_query_selected(self, index):
+        if index > 0:
+            query_text = self.combo_queries.itemData(index)
+            if query_text:
+                self.edit_query.setPlainText(query_text)
+                
+    def save_current_query(self):
+        query_text = self.edit_query.toPlainText().strip()
+        if not query_text:
+            QMessageBox.warning(self, "Warning", "Cannot save an empty query.")
+            return
+            
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "Save Query", "Enter a name for this query:")
+        if ok and name.strip():
+            name = name.strip()
+            self.settings.beginGroup("queries")
+            self.settings.setValue(name, query_text)
+            self.settings.endGroup()
+            
+            self.load_queries()
+            idx = self.combo_queries.findText(name)
+            if idx >= 0:
+                self.combo_queries.blockSignals(True)
+                self.combo_queries.setCurrentIndex(idx)
+                self.combo_queries.blockSignals(False)
+                
+    def delete_current_query(self):
+        idx = self.combo_queries.currentIndex()
+        if idx > 0:
+            name = self.combo_queries.itemText(idx)
+            reply = QMessageBox.question(self, "Delete Query", f"Are you sure you want to delete '{name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                self.settings.beginGroup("queries")
+                self.settings.remove(name)
+                self.settings.endGroup()
+                self.load_queries()
+                self.edit_query.clear()
             
     def run_query(self):
         host = self.edit_host.text().strip()

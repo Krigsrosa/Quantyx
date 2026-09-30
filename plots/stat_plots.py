@@ -157,7 +157,8 @@ class HistogramWidget(QWidget):
                 self.plot_widget.addLegend()
                 counts = valid_df.groupby([x_col, hue_val]).size().unstack(fill_value=0)
                 cats = list(counts.index)
-                x_ticks = [list(enumerate(cats))]
+                cats_str = [str(c) for c in cats]
+                x_ticks = [list(enumerate(cats_str))]
                 self.plot_widget.getAxis('bottom').setTicks(x_ticks)
                 
                 n_hues = len(counts.columns)
@@ -169,7 +170,8 @@ class HistogramWidget(QWidget):
             else:
                 counts = valid_df[x_col].value_counts()
                 cats = list(counts.index)
-                x_ticks = [list(enumerate(cats))]
+                cats_str = [str(c) for c in cats]
+                x_ticks = [list(enumerate(cats_str))]
                 self.plot_widget.getAxis('bottom').setTicks(x_ticks)
                 bg = pg.BarGraphItem(x=np.arange(len(cats)), height=counts.values, width=0.6, brush=pg.mkColor(props.get('color_base', '#1f77b4')))
                 self.plot_widget.addItem(bg)
@@ -489,7 +491,8 @@ class BarPlotWidget(QWidget):
                 counts = valid_df.groupby([x_col, hue_val]).size().unstack()
                 
             cats = list(counts.index)
-            self.plot_widget.getAxis('bottom').setTicks([list(enumerate(cats))])
+            cats_str = [str(c) for c in cats]
+            self.plot_widget.getAxis('bottom').setTicks([list(enumerate(cats_str))])
             
             n_hues = len(counts.columns)
             width = 0.8 / n_hues
@@ -504,7 +507,8 @@ class BarPlotWidget(QWidget):
                 counts = valid_df[x_col].value_counts()
                 
             cats = list(counts.index)
-            self.plot_widget.getAxis('bottom').setTicks([list(enumerate(cats))])
+            cats_str = [str(c) for c in cats]
+            self.plot_widget.getAxis('bottom').setTicks([list(enumerate(cats_str))])
             bg = pg.BarGraphItem(x=np.arange(len(cats)), height=counts.values, width=0.6, brush=pg.mkColor(props.get('color_base', '#1f77b4')))
             self.plot_widget.addItem(bg)
 
