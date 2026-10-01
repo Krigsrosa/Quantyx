@@ -20,6 +20,10 @@ from utils.logger import logger
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        from PyQt6.QtCore import QThreadPool
+        self.threadpool = QThreadPool()
+        
         self.setWindowTitle("Quantyx - Data Analysis & ML")
         self.resize(1200, 800)
         
@@ -53,7 +57,6 @@ class MainWindow(QMainWindow):
         self.plot_lineplot = LinePlotWidget()
         self.plot_parallel = ParallelPlotWidget()
         self.plot_corr = CorrelationMatrixWidget()
-        self.plot_ml = MachineLearningWidget()
         
         self.tab_widget.addTab(self.plot_scatter, "Scatter")
         self.tab_widget.addTab(self.plot_histogram, "Histogram")
@@ -62,12 +65,36 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.plot_lineplot, "Line Plot")
         self.tab_widget.addTab(self.plot_parallel, "Parallel Coordinates")
         self.tab_widget.addTab(self.plot_corr, "Correlation Matrix")
-        self.tab_widget.addTab(self.plot_ml, "Machine Learning")
+        
+        from widgets.ml_settings_panel import MLSettingsPanel
+        
+        self.ml_settings_panel = MLSettingsPanel()
+        self.ml_tab_widget = QTabWidget()
+        
+        # Create ML Widgets for each technique
+        self.ml_widgets = {}
+        techniques = ["PCA", "K-Means", "K-Nearest Neighbors", "Random Forest", "XGBoost"]
+        for tech in techniques:
+            w = MachineLearningWidget(self.ml_settings_panel, tech)
+            w.model_loaded.connect(self.on_ml_model_loaded)
+            self.ml_tab_widget.addTab(w, tech)
+            self.ml_widgets[tech] = w
+            
+        self.ml_tab_widget.currentChanged.connect(self.on_ml_tab_changed)
+        
+        # Connect panel signals to active ML widget
+        self.ml_settings_panel.update_plot_requested.connect(self.update_plot)
+        self.ml_settings_panel.train_requested.connect(self.on_ml_train_requested)
+        self.ml_settings_panel.predict_requested.connect(self.on_ml_predict_requested)
+        self.ml_settings_panel.autotune_requested.connect(self.on_ml_autotune_requested)
+        self.ml_settings_panel.importance_requested.connect(self.on_ml_importance_requested)
+        self.ml_settings_panel.save_requested.connect(lambda: self.get_active_ml_widget().save_model())
+        self.ml_settings_panel.load_requested.connect(lambda: self.get_active_ml_widget().load_model())
+        self.ml_settings_panel.download_requested.connect(lambda: self.get_active_ml_widget().download_results())
+        self.ml_settings_panel.return_requested.connect(self.return_to_plots)
         
         self.report_panel = ReportPanel()
-        
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
-        self.plot_ml.model_loaded.connect(self.on_ml_model_loaded)
         
         from PyQt6.QtWidgets import QStackedWidget
         self.central_stack = QStackedWidget()
@@ -78,6 +105,7 @@ class MainWindow(QMainWindow):
         from plots.outlier_plot import OutlierPlotWidget
         self.outlier_plot = OutlierPlotWidget()
         self.central_stack.addWidget(self.outlier_plot)
+        self.central_stack.addWidget(self.ml_tab_widget)
         from PyQt6.QtWidgets import QToolBar
         from PyQt6.QtGui import QAction
         self.toolbar = QToolBar("Main Toolbar")
@@ -112,7 +140,8 @@ class MainWindow(QMainWindow):
         self.combo_y = QComboBox()
         var_layout.addWidget(self.combo_y)
         
-        var_layout.addWidget(QLabel("Color by:"))
+        self.lbl_color_by = QLabel("Color by:")
+        var_layout.addWidget(self.lbl_color_by)
         self.combo_color = QComboBox()
         var_layout.addWidget(self.combo_color)
         
@@ -165,6 +194,19 @@ class MainWindow(QMainWindow):
         # Tabify Filter, Properties, and Gallery
         self.tabifyDockWidget(self.filter_dock, self.props_dock)
         self.tabifyDockWidget(self.props_dock, self.gallery_dock)
+        
+        # 4.5. ML Settings Dock (Right, hidden by default, tabified between Props and Gallery)
+        self.ml_dock = QDockWidget("ML Settings", self)
+        
+        ml_scroll = QScrollArea()
+        ml_scroll.setWidgetResizable(True)
+        ml_scroll.setWidget(self.ml_settings_panel)
+        self.ml_dock.setWidget(ml_scroll)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.ml_dock)
+        self.tabifyDockWidget(self.props_dock, self.ml_dock)
+        self.tabifyDockWidget(self.ml_dock, self.gallery_dock)
+        self.ml_dock.hide()
+        
         self.props_dock.raise_()
         
         # 5. Preprocessing Dock (Right, hidden by default)
@@ -246,6 +288,90 @@ class MainWindow(QMainWindow):
         prep_action = prep_menu.addAction("Open Preprocessing Tool")
         prep_action.triggered.connect(self.toggle_preprocessing_mode)
         
+        ml_menu = menubar.addMenu("Machine Learning")
+        ml_action = ml_menu.addAction("Open ML Hub")
+        ml_action.triggered.connect(self.toggle_ml_mode)
+        
+    def on_ml_train_requested(self):
+        self.update_plot()
+        w = self.get_active_ml_widget()
+        if w: w.train_model()
+        
+    def on_ml_predict_requested(self):
+        self.update_plot()
+        w = self.get_active_ml_widget()
+        if w: w.predict_only()
+        
+    def on_ml_autotune_requested(self):
+        self.update_plot()
+        w = self.get_active_ml_widget()
+        if w: w.auto_tune()
+        
+    def on_ml_importance_requested(self):
+        self.update_plot()
+        w = self.get_active_ml_widget()
+        if w: w.show_feature_importance()
+        
+    def get_active_ml_widget(self):
+        return self.ml_tab_widget.currentWidget()
+        
+    def on_ml_tab_changed(self):
+        tech = self.ml_tab_widget.tabText(self.ml_tab_widget.currentIndex())
+        self.ml_settings_panel.set_technique(tech)
+        self.ml_settings_panel.populate_target(self.data_manager.filtered_df)
+        
+        if self.data_manager.df is not None and self.central_stack.currentIndex() == 2:
+            all_cols = self.data_manager.get_column_names()
+            curr_x = self.combo_x.currentText()
+            curr_y = self.combo_y.currentText()
+            
+            self.combo_x.blockSignals(True)
+            self.combo_y.blockSignals(True)
+            self.combo_x.clear()
+            self.combo_y.clear()
+            self.combo_x.addItem("None")
+            self.combo_x.addItems(all_cols)
+            self.combo_y.addItem("None")
+            self.combo_y.addItems(all_cols)
+            
+            idx_x = self.combo_x.findText(curr_x)
+            if idx_x >= 0: self.combo_x.setCurrentIndex(idx_x)
+            idx_y = self.combo_y.findText(curr_y)
+            if idx_y >= 0: self.combo_y.setCurrentIndex(idx_y)
+            
+            self.combo_x.blockSignals(False)
+            self.combo_y.blockSignals(False)
+            
+            is_pca = (tech == "PCA")
+            self.lbl_color_by.setVisible(is_pca)
+            self.combo_color.setVisible(is_pca)
+            self.edit_color_rule.setVisible(is_pca)
+        
+    def toggle_ml_mode(self):
+        if self.data_manager.df is None:
+            QMessageBox.warning(self, "Warning", "Please load data first.")
+            return
+            
+        if self.central_stack.currentIndex() == 2:
+            self.return_to_plots()
+        else:
+            self.central_stack.setCurrentIndex(2)
+            self.prep_dock.hide()
+            self.filter_dock.hide()
+            self.props_dock.hide()
+            self.var_dock.show()
+            self.lbl_color_by.hide()
+            self.combo_color.hide()
+            self.edit_color_rule.hide()
+            self.btn_update_plot.show()
+            self.gallery_dock.show()
+            self.ml_dock.show()
+            self.ml_dock.raise_()
+            self.on_ml_tab_changed()
+            
+            # Force a replot so the ML widget gets the variables
+            self.update_plot()
+        
     def open_template_center(self):
         from ui.template_center import TemplateCenterDialog
         dlg = TemplateCenterDialog(self)
@@ -266,30 +392,112 @@ class MainWindow(QMainWindow):
             return
             
         self.central_stack.setCurrentIndex(1)
+        self.var_dock.show()
+        self.lbl_color_by.hide()
+        self.combo_color.hide()
+        self.edit_color_rule.hide()
+        self.btn_update_plot.show()
         self.filter_dock.hide()
         self.props_dock.hide()
+        self.gallery_dock.hide()
+        self.ml_dock.hide()
         self.prep_dock.show()
         self.prep_panel.update_columns()
+        
+        # Override combo_x and combo_y to numeric for the outlier plot
+        if self.data_manager.df is not None:
+            num_cols = self.data_manager.get_numeric_columns()
+            curr_x = self.combo_x.currentText()
+            curr_y = self.combo_y.currentText()
+            
+            self.combo_x.blockSignals(True)
+            self.combo_y.blockSignals(True)
+            self.combo_x.clear()
+            self.combo_y.clear()
+            self.combo_x.addItems(num_cols)
+            self.combo_y.addItems(num_cols)
+            
+            idx_x = self.combo_x.findText(curr_x)
+            if idx_x >= 0: self.combo_x.setCurrentIndex(idx_x)
+            idx_y = self.combo_y.findText(curr_y)
+            if idx_y >= 0: self.combo_y.setCurrentIndex(idx_y)
+            
+            self.combo_x.blockSignals(False)
+            self.combo_y.blockSignals(False)
+        
         self.update_outlier_plot()
         
     def return_to_plots(self):
         self.central_stack.setCurrentIndex(0)
         self.prep_dock.hide()
+        self.ml_dock.hide()
+        self.var_dock.show()
+        self.lbl_color_by.show()
+        self.combo_color.show()
+        self.edit_color_rule.show()
+        self.btn_update_plot.show()
         self.filter_dock.show()
         self.props_dock.show()
+        self.gallery_dock.show()
+        # Force combo boxes to reset to the standard plots rules
+        self.on_tab_changed(self.tab_widget.currentIndex())
         # Force a replot on the current tab
         self.update_plot()
         
     def on_impute_requested(self, cols, method):
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.show()
+        self.statusBar().showMessage("Imputing missing data...")
+        self.prep_dock.setEnabled(False)
+        
+        from utils.threads import Worker
+        worker = Worker(self._do_impute, cols, method)
+        worker.signals.result.connect(self._on_impute_success)
+        worker.signals.error.connect(self._on_prep_error)
+        self.threadpool.start(worker)
+        
+    def _do_impute(self, cols, method):
         self.data_manager.impute_missing(cols, method)
+        return cols, method
+        
+    def _on_impute_success(self, result):
+        cols, method = result
         self.data_table.set_dataframe(self.data_manager.filtered_df)
         self.update_outlier_plot()
+        self.progress_bar.hide()
+        self.prep_dock.setEnabled(True)
+        self.statusBar().showMessage(f"Imputed {method} for columns: {', '.join(cols)}", 5000)
         QMessageBox.information(self, "Success", f"Imputed {method} for columns: {', '.join(cols)}")
         
+    def _on_prep_error(self, err_tuple):
+        self.progress_bar.hide()
+        self.prep_dock.setEnabled(True)
+        self.statusBar().showMessage("Error during preprocessing.", 5000)
+        QMessageBox.critical(self, "Error", str(err_tuple[1]))
+        
     def on_scale_requested(self, cols, method):
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.show()
+        self.statusBar().showMessage("Scaling data...")
+        self.prep_dock.setEnabled(False)
+        
+        from utils.threads import Worker
+        worker = Worker(self._do_scale, cols, method)
+        worker.signals.result.connect(self._on_scale_success)
+        worker.signals.error.connect(self._on_prep_error)
+        self.threadpool.start(worker)
+        
+    def _do_scale(self, cols, method):
         self.data_manager.scale_columns(cols, method)
+        return cols, method
+        
+    def _on_scale_success(self, result):
+        cols, method = result
         self.data_table.set_dataframe(self.data_manager.filtered_df)
         self.update_outlier_plot()
+        self.progress_bar.hide()
+        self.prep_dock.setEnabled(True)
+        self.statusBar().showMessage(f"Applied {method} scaling to: {', '.join(cols)}", 5000)
         QMessageBox.information(self, "Success", f"Applied {method} scaling to: {', '.join(cols)}")
         
     def on_auto_outlier_requested(self):
@@ -322,17 +530,32 @@ class MainWindow(QMainWindow):
         if df_clean.empty:
             QMessageBox.warning(self, "Auto Detect", "Não foi possível analisar os dados (as colunas estão vazias ou inválidas).")
             return
+            
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.show()
+        self.statusBar().showMessage("Detecting outliers...")
+        self.prep_dock.setEnabled(False)
         
+        from utils.threads import Worker
+        worker = Worker(self._do_auto_outlier, df_clean)
+        worker.signals.result.connect(self._on_auto_outlier_success)
+        worker.signals.error.connect(self._on_prep_error)
+        self.threadpool.start(worker)
+        
+    def _do_auto_outlier(self, df_clean):
         from sklearn.ensemble import IsolationForest
         iso = IsolationForest(contamination=0.05, random_state=42)
         preds = iso.fit_predict(df_clean)
-        
-        # preds: 1 for inliers, -1 for outliers
         outlier_mask = preds == -1
         outlier_indices = df_clean.index[outlier_mask].tolist()
+        return outlier_indices
         
+    def _on_auto_outlier_success(self, outlier_indices):
+        self.progress_bar.hide()
+        self.prep_dock.setEnabled(True)
+        self.statusBar().showMessage("Outlier detection complete.", 5000)
         self.outlier_plot.set_auto_outliers(outlier_indices)
-        QMessageBox.information(self, "Auto Detect", f"Analisando {len(valid_cols)} colunas. Detectados {len(outlier_indices)} outliers.")
+        QMessageBox.information(self, "Auto Detect", f"Detectados {len(outlier_indices)} outliers potenciais. Verifique no gráfico.")
         
     def on_clear_outliers_requested(self):
         self.outlier_plot.clear_selections()
@@ -422,7 +645,7 @@ class MainWindow(QMainWindow):
         self.combo_y.blockSignals(False)
         
         self.filter_panel.update_columns()
-        self.plot_ml.populate_target_combo(df)
+        self.ml_settings_panel.populate_target(df)
         # Don't plot automatically on data load to avoid freezing with large datasets
         self.props_panel.update_visibility(self.tab_widget.currentIndex())
         
@@ -477,8 +700,7 @@ class MainWindow(QMainWindow):
             self.combo_x.blockSignals(False)
             self.combo_y.blockSignals(False)
             
-            if index == 7: # Machine Learning
-                self.plot_ml.populate_target_combo(self.data_manager.df)
+
 
         # Don't plot automatically on tab change to avoid heavy processing
         # Just update the properties panel visibility
@@ -487,10 +709,10 @@ class MainWindow(QMainWindow):
     def on_ml_model_loaded(self, data):
         if not data: return
         
-        features = data.get('features', [])
-        target = data.get('target', '')
-        task = data.get('task', '')
-        tech = data.get('tech', '')
+        features = data.get('ml_features', data.get('features', []))
+        target = data.get('ml_target', data.get('target', ''))
+        task = data.get('ml_task', data.get('task', ''))
+        tech = data.get('ml_tech', data.get('tech', ''))
         
         # 1. Update side variables
         self.var_list.blockSignals(True)
@@ -502,18 +724,40 @@ class MainWindow(QMainWindow):
                 item.setCheckState(Qt.CheckState.Unchecked)
         self.var_list.blockSignals(False)
         
-        # 2. Update ML panel combos
+        # 2. Ensure we are in ML mode
+        if self.central_stack.currentIndex() != 2:
+            self.toggle_ml_mode()
+        
+        # 3. Update ML panel combos
         if tech:
-            idx = self.plot_ml.combo_tech.findText(tech)
-            if idx >= 0: self.plot_ml.combo_tech.setCurrentIndex(idx)
+            for i in range(self.ml_tab_widget.count()):
+                if self.ml_tab_widget.tabText(i) == tech:
+                    self.ml_tab_widget.setCurrentIndex(i)
+                    break
             
         if task:
-            idx = self.plot_ml.combo_task.findText(task)
-            if idx >= 0: self.plot_ml.combo_task.setCurrentIndex(idx)
+            idx = self.ml_settings_panel.combo_task.findText(task)
+            if idx >= 0: self.ml_settings_panel.combo_task.setCurrentIndex(idx)
             
         if target:
-            idx = self.plot_ml.combo_target.findText(target)
-            if idx >= 0: self.plot_ml.combo_target.setCurrentIndex(idx)
+            idx = self.ml_settings_panel.combo_target.findText(target)
+            if idx >= 0: self.ml_settings_panel.combo_target.setCurrentIndex(idx)
+            
+        ml_model = data.get('ml_model')
+        if ml_model:
+            active_ml = self.get_active_ml_widget()
+            if active_ml:
+                active_ml.trained_model = ml_model
+                active_ml.model_features = features
+                active_ml.model_target = target
+                active_ml.model_task = task
+                active_ml.model_tech = tech
+                active_ml.model_loaded.emit({
+                    'features': features,
+                    'target': target,
+                    'task': task,
+                    'tech': tech
+                })
             
         self.update_plot()
         
@@ -555,6 +799,16 @@ class MainWindow(QMainWindow):
         if self.central_stack.currentIndex() == 1:
             self.update_outlier_plot()
             return
+        elif self.central_stack.currentIndex() == 2:
+            selected_cols = []
+            for i in range(self.var_list.count()):
+                item = self.var_list.item(i)
+                if item.checkState() == Qt.CheckState.Checked:
+                    selected_cols.append(item.text())
+            active_ml = self.get_active_ml_widget()
+            if active_ml:
+                active_ml.plot_data(df, selected_cols, x_col, y_col, color_col, self.plot_properties)
+            return
             
         current_idx = self.tab_widget.currentIndex()
         self.props_panel.update_visibility(current_idx)
@@ -591,13 +845,6 @@ class MainWindow(QMainWindow):
                 if item.checkState() == Qt.CheckState.Checked:
                     selected_cols.append(item.text())
             self.plot_corr.plot_data(df, selected_cols, self.plot_properties)
-        elif current_idx == 7: # Machine Learning
-            selected_cols = []
-            for i in range(self.var_list.count()):
-                item = self.var_list.item(i)
-                if item.checkState() == Qt.CheckState.Checked:
-                    selected_cols.append(item.text())
-            self.plot_ml.plot_data(df, selected_cols, x_col, y_col, color_col, self.plot_properties)
 
     def on_data_error(self, err_msg):
         self.progress_bar.hide()
@@ -627,8 +874,23 @@ class MainWindow(QMainWindow):
             export_data(df, file_name)
             self.statusBar().showMessage(f"Data exported to {file_name}")
 
-    def export_plot(self, ext="png"):
+    def get_current_plot_widget(self):
+        if self.central_stack.currentIndex() == 1:
+            return self.outlier_plot
+        elif self.central_stack.currentIndex() == 2:
+            return self.get_active_ml_widget()
+            
         current_idx = self.tab_widget.currentIndex()
+        if current_idx == 0: return self.plot_scatter
+        elif current_idx == 1: return self.plot_histogram
+        elif current_idx == 2: return self.plot_boxplot
+        elif current_idx == 3: return self.plot_barplot
+        elif current_idx == 4: return self.plot_lineplot
+        elif current_idx == 5: return self.plot_parallel
+        elif current_idx == 6: return self.plot_corr
+        return None
+
+    def export_plot(self, ext="png"):
         if self.data_manager.df is None:
             QMessageBox.warning(self, "Export Error", "No plot available to export.")
             return
@@ -638,15 +900,8 @@ class MainWindow(QMainWindow):
             return
             
         try:
-            widget = None
-            if current_idx == 0: widget = self.plot_scatter
-            elif current_idx == 1: widget = self.plot_histogram
-            elif current_idx == 2: widget = self.plot_boxplot
-            elif current_idx == 3: widget = self.plot_barplot
-            elif current_idx == 4: widget = self.plot_lineplot
-            elif current_idx == 5: widget = self.plot_parallel
-            elif current_idx == 6: widget = self.plot_corr
-            elif current_idx == 7: widget = self.plot_ml
+            widget = self.get_current_plot_widget()
+            
             
             if widget is None: return
                 
@@ -674,30 +929,20 @@ class MainWindow(QMainWindow):
         self.export_plot("pdf")
         
     def add_plot_to_report(self):
-        current_idx = self.tab_widget.currentIndex()
         if self.data_manager.df is None:
             QMessageBox.warning(self, "Warning", "No data loaded!")
             return
             
         import os
         
-        if current_idx == 8:
-            QMessageBox.warning(self, "Warning", "Cannot add the gallery to itself!")
-            return
+
             
         img_name = f"plot_{len(self.report_panel.images) + 1}.png"
         img_path = os.path.join(self.report_panel.temp_dir, img_name)
         
         try:
-            widget = None
-            if current_idx == 0: widget = self.plot_scatter
-            elif current_idx == 1: widget = self.plot_histogram
-            elif current_idx == 2: widget = self.plot_boxplot
-            elif current_idx == 3: widget = self.plot_barplot
-            elif current_idx == 4: widget = self.plot_lineplot
-            elif current_idx == 5: widget = self.plot_parallel
-            elif current_idx == 6: widget = self.plot_corr
-            elif current_idx == 7: widget = self.plot_ml
+            widget = self.get_current_plot_widget()
+            
             
             if widget:
                 pixmap = widget.grab()
@@ -735,16 +980,23 @@ class MainWindow(QMainWindow):
                 except:
                     pass
                 
+            active_ml = self.get_active_ml_widget()
+            ml_data = {}
+            if active_ml:
+                ml_data = {
+                    'ml_model': active_ml.trained_model,
+                    'ml_features': active_ml.model_features,
+                    'ml_target': getattr(active_ml, 'model_target', ''),
+                    'ml_task': getattr(active_ml, 'model_task', ''),
+                    'ml_tech': getattr(active_ml, 'model_tech', '')
+                }
+            
             data = {
                 'df': self.data_manager.df,
                 'filtered_df': self.data_manager.filtered_df,
                 'filters': self.filter_panel.active_filters,
                 'gallery_bytes': gallery_bytes,
-                'ml_model': self.plot_ml.trained_model,
-                'ml_features': self.plot_ml.model_features,
-                'ml_target': getattr(self.plot_ml, 'model_target', ''),
-                'ml_task': getattr(self.plot_ml, 'model_task', ''),
-                'ml_tech': getattr(self.plot_ml, 'model_tech', '')
+                **ml_data
             }
             
             joblib.dump(data, file_name)
@@ -821,20 +1073,9 @@ class MainWindow(QMainWindow):
                 self.report_panel.add_image(img_path)
                 
             # 5. ML Model
-            self.plot_ml.trained_model = data.get('ml_model')
-            self.plot_ml.model_features = data.get('ml_features', [])
-            self.plot_ml.model_target = data.get('ml_target', '')
-            self.plot_ml.model_task = data.get('ml_task', '')
-            self.plot_ml.model_tech = data.get('ml_tech', '')
-            
-            if self.plot_ml.trained_model:
-                self.plot_ml.model_loaded.emit({
-                    'features': self.plot_ml.model_features,
-                    'target': self.plot_ml.model_target,
-                    'task': self.plot_ml.model_task,
-                    'tech': self.plot_ml.model_tech
-                })
-                
+            ml_model = data.get('ml_model')
+            if ml_model:
+                self.on_ml_model_loaded(data)
             QMessageBox.information(self, "Success", "Project loaded successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
