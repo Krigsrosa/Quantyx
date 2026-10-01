@@ -48,121 +48,14 @@ class FormattedAxisItem(pg.AxisItem):
 class MachineLearningWidget(QWidget):
     model_loaded = pyqtSignal(dict)
     
-    def __init__(self, parent=None):
+    def __init__(self, panel, tech, parent=None):
         super().__init__(parent)
+        self.panel = panel
+        self.tech = tech
+        
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.threadpool = QThreadPool()
-        
-        # --- Top Control Bar ---
-        
-        self.combo_tech = QComboBox()
-        self.combo_tech.addItems(["PCA", "K-Means", "K-Nearest Neighbors", "Random Forest", "XGBoost"])
-        self.combo_tech.currentIndexChanged.connect(self.on_tech_changed)
-        
-        self.combo_task = QComboBox()
-        self.combo_task.addItems(["Classification", "Regression"])
-        self.combo_task.currentIndexChanged.connect(self.trigger_replot)
-        
-        self.combo_target = QComboBox()
-        self.combo_target.currentIndexChanged.connect(self.trigger_replot)
-        
-        self.spin_k = QSpinBox()
-        self.spin_k.setRange(2, 50)
-        self.spin_k.setValue(3)
-        self.lbl_k = QLabel("K:")
-        
-        self.spin_trees = QSpinBox()
-        self.spin_trees.setRange(10, 1000)
-        self.spin_trees.setValue(100)
-        self.lbl_trees = QLabel("Trees:")
-        
-        self.spin_depth = QSpinBox()
-        self.spin_depth.setRange(1, 100)
-        self.spin_depth.setValue(6)
-        self.lbl_depth = QLabel("Max Depth:")
-        
-        self.spin_lr = QDoubleSpinBox()
-        self.spin_lr.setRange(0.001, 1.0)
-        self.spin_lr.setSingleStep(0.05)
-        self.spin_lr.setValue(0.1)
-        self.lbl_lr = QLabel("Learning Rate:")
-        
-        self.btn_train = QPushButton("Train Model")
-        self.btn_train.clicked.connect(self.train_model)
-        
-        self.btn_save = QPushButton("Save Model")
-        self.btn_save.clicked.connect(self.save_model)
-        
-        self.btn_load = QPushButton("Load Model")
-        self.btn_load.clicked.connect(self.load_model)
-        
-        self.btn_download = QPushButton("Download Results")
-        self.btn_download.clicked.connect(self.download_results)
-        
-        self.btn_importance = QPushButton("Feature Importance")
-        self.btn_importance.clicked.connect(self.show_feature_importance)
-        
-        self.btn_autotune = QPushButton("✨ Auto-Tune")
-        self.btn_autotune.clicked.connect(self.auto_tune)
-        
-        self.group_controls = QGroupBox("ML Configuration")
-        control_layout = QVBoxLayout(self.group_controls)
-        
-        row1 = QHBoxLayout()
-        row2 = QHBoxLayout()
-        
-        row1.addWidget(QLabel("Technique:"))
-        row1.addWidget(self.combo_tech)
-        
-        self.w_task = QWidget()
-        l_task = QHBoxLayout(self.w_task)
-        l_task.setContentsMargins(0,0,0,0)
-        l_task.addWidget(QLabel("Task:"))
-        l_task.addWidget(self.combo_task)
-        row1.addWidget(self.w_task)
-        
-        self.w_target = QWidget()
-        l_target = QHBoxLayout(self.w_target)
-        l_target.setContentsMargins(0,0,0,0)
-        l_target.addWidget(QLabel("Target (Y):"))
-        l_target.addWidget(self.combo_target)
-        row1.addWidget(self.w_target)
-        
-        row1.addSpacing(15)
-        row1.addWidget(self.lbl_k)
-        row1.addWidget(self.spin_k)
-        row1.addWidget(self.lbl_trees)
-        row1.addWidget(self.spin_trees)
-        row1.addWidget(self.lbl_depth)
-        row1.addWidget(self.spin_depth)
-        row1.addWidget(self.lbl_lr)
-        row1.addWidget(self.spin_lr)
-        row1.addStretch()
-        
-        self.btn_predict = QPushButton("Predict")
-        self.btn_predict.clicked.connect(self.predict_only)
-        
-        from PyQt6.QtWidgets import QProgressBar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 0) # Indeterminate mode
-        self.progress_bar.setMaximumWidth(150)
-        self.progress_bar.hide()
-        
-        row2.addWidget(self.btn_train)
-        row2.addWidget(self.btn_autotune)
-        row2.addWidget(self.progress_bar)
-        row2.addWidget(self.btn_importance)
-        row2.addWidget(self.btn_predict)
-        row2.addWidget(self.btn_save)
-        row2.addWidget(self.btn_load)
-        row2.addWidget(self.btn_download)
-        row2.addStretch()
-        
-        control_layout.addLayout(row1)
-        control_layout.addLayout(row2)
-        
-        self.layout.addWidget(self.group_controls)
         
         # --- Plot Area ---
         self.axis_x = FormattedAxisItem(orientation='bottom')
@@ -182,41 +75,15 @@ class MachineLearningWidget(QWidget):
         self.model_features = None
         self.last_results_df = None
         
-        self.on_tech_changed()
-        
-    def on_tech_changed(self):
-        tech = self.combo_tech.currentText()
-        is_unsup = tech in ["PCA", "K-Means"]
-        
-        self.w_task.setVisible(not is_unsup)
-        self.w_target.setVisible(not is_unsup)
-        self.btn_train.setVisible(not is_unsup)
-        self.btn_autotune.setVisible(not is_unsup)
-        self.btn_predict.setVisible(not is_unsup)
-        self.btn_save.setVisible(not is_unsup)
-        self.btn_load.setVisible(not is_unsup)
-        
-        self.lbl_k.setVisible(tech in ["K-Means", "K-Nearest Neighbors"])
-        self.spin_k.setVisible(tech in ["K-Means", "K-Nearest Neighbors"])
-        self.lbl_trees.setVisible(tech in ["Random Forest", "XGBoost"])
-        self.spin_trees.setVisible(tech in ["Random Forest", "XGBoost"])
-        self.lbl_depth.setVisible(tech in ["Random Forest", "XGBoost"])
-        self.spin_depth.setVisible(tech in ["Random Forest", "XGBoost"])
-        self.lbl_lr.setVisible(tech == "XGBoost")
-        self.spin_lr.setVisible(tech == "XGBoost")
-        self.btn_importance.setVisible(tech in ["Random Forest", "XGBoost"])
-        
-        self.trigger_replot()
-        
     def populate_target_combo(self, df):
         if df is None: return
-        current = self.combo_target.currentText()
-        self.combo_target.blockSignals(True)
-        self.combo_target.clear()
-        self.combo_target.addItems(df.columns.tolist())
+        current = self.panel.combo_target.currentText()
+        self.panel.combo_target.blockSignals(True)
+        self.panel.combo_target.clear()
+        self.panel.combo_target.addItems(df.columns.tolist())
         if current in df.columns:
-            self.combo_target.setCurrentText(current)
-        self.combo_target.blockSignals(False)
+            self.panel.combo_target.setCurrentText(current)
+        self.panel.combo_target.blockSignals(False)
         
     def trigger_replot(self):
         if self.last_df is not None:
@@ -230,12 +97,12 @@ class MachineLearningWidget(QWidget):
         if len(valid_features) < 1:
             return None, None, "Please check at least 1 numeric variable in the 'All Variables' list."
             
-        tech = self.combo_tech.currentText()
+        tech = self.tech
         is_unsup = tech in ["PCA", "K-Means"]
         
         needed_cols = list(set(valid_features))
         if not is_unsup and for_training:
-            target = self.combo_target.currentText()
+            target = self.panel.combo_target.currentText()
             if not target:
                 return None, None, "No target variable selected."
             needed_cols.append(target)
@@ -275,7 +142,7 @@ class MachineLearningWidget(QWidget):
         
         self.populate_target_combo(df)
         
-        tech = self.combo_tech.currentText()
+        tech = self.tech
         if tech in ["PCA", "K-Means"]:
             self._plot_unsupervised()
         else:
@@ -288,7 +155,7 @@ class MachineLearningWidget(QWidget):
             self._show_error(err)
             return
             
-        tech = self.combo_tech.currentText()
+        tech = self.tech
         X = clean_df[valid_features].values
         
         c_base = pg.mkColor(self.last_props.get('color_base', '#1f77b4'))
@@ -328,7 +195,7 @@ class MachineLearningWidget(QWidget):
                 self.plot_widget.setTitle(self.last_props.get('custom_title') or "PCA Plot")
                 
             elif tech == "K-Means":
-                k = self.spin_k.value()
+                k = self.panel.spin_k.value()
                 kmeans = KMeans(n_clusters=k, random_state=42, n_init='auto')
                 clusters = kmeans.fit_predict(X)
                 clean_df['Cluster'] = [f"Cluster {c+1}" for c in clusters]
@@ -366,9 +233,9 @@ class MachineLearningWidget(QWidget):
             QMessageBox.warning(self, "Training Error", err)
             return
             
-        target = self.combo_target.currentText()
-        task = self.combo_task.currentText()
-        tech = self.combo_tech.currentText()
+        target = self.panel.combo_target.currentText()
+        task = self.panel.combo_task.currentText()
+        tech = self.tech
         
         X = clean_df[valid_features].values
         y = clean_df[target].values
@@ -379,9 +246,9 @@ class MachineLearningWidget(QWidget):
                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if resp == QMessageBox.StandardButton.No: return
                 
-        self.btn_train.setEnabled(False)
-        self.btn_train.setText("Training...")
-        self.progress_bar.show()
+        self.panel.btn_train.setEnabled(False)
+        self.panel.btn_train.setText("Training...")
+        self.panel.progress_bar.show()
         
         worker = Worker(self._do_train_model, X, y, clean_df, valid_features, target, task, tech)
         worker.signals.result.connect(self._on_train_success)
@@ -390,16 +257,16 @@ class MachineLearningWidget(QWidget):
 
     def _do_train_model(self, X, y, clean_df, valid_features, target, task, tech):
         if tech == "K-Nearest Neighbors":
-            model = KNeighborsClassifier(n_neighbors=self.spin_k.value()) if task == "Classification" else KNeighborsRegressor(n_neighbors=self.spin_k.value())
+            model = KNeighborsClassifier(n_neighbors=self.panel.spin_k.value()) if task == "Classification" else KNeighborsRegressor(n_neighbors=self.panel.spin_k.value())
         elif tech == "Random Forest":
-            model = RandomForestClassifier(n_estimators=self.spin_trees.value(), max_depth=self.spin_depth.value(), random_state=42) if task == "Classification" else RandomForestRegressor(n_estimators=self.spin_trees.value(), max_depth=self.spin_depth.value(), random_state=42)
+            model = RandomForestClassifier(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), random_state=42) if task == "Classification" else RandomForestRegressor(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), random_state=42)
         elif tech == "XGBoost":
             if task == "Classification":
                 if not pd.api.types.is_numeric_dtype(y):
                     y = pd.Categorical(y).codes
-                model = XGBClassifier(n_estimators=self.spin_trees.value(), max_depth=self.spin_depth.value(), learning_rate=self.spin_lr.value(), random_state=42)
+                model = XGBClassifier(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), learning_rate=self.panel.spin_lr.value(), random_state=42)
             else:
-                model = XGBRegressor(n_estimators=self.spin_trees.value(), max_depth=self.spin_depth.value(), learning_rate=self.spin_lr.value(), random_state=42)
+                model = XGBRegressor(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), learning_rate=self.panel.spin_lr.value(), random_state=42)
         
         model.fit(X, y)
         return model, valid_features, target, task, tech, clean_df, y
@@ -412,16 +279,16 @@ class MachineLearningWidget(QWidget):
         self.model_task = task
         self.model_tech = tech
         
-        self.btn_train.setEnabled(True)
-        self.btn_train.setText("Train Model")
-        self.progress_bar.hide()
+        self.panel.btn_train.setEnabled(True)
+        self.panel.btn_train.setText("Train Model")
+        self.panel.progress_bar.hide()
         QMessageBox.information(self, "Success", "Model trained successfully!")
         self._plot_supervised_inference(clean_df, valid_features, target, y_true)
 
     def _on_train_error(self, err_tuple):
-        self.btn_train.setEnabled(True)
-        self.btn_train.setText("Train Model")
-        self.progress_bar.hide()
+        self.panel.btn_train.setEnabled(True)
+        self.panel.btn_train.setText("Train Model")
+        self.panel.progress_bar.hide()
         QMessageBox.critical(self, "Training Error", str(err_tuple[1]))
 
     def _plot_supervised_inference(self, clean_df=None, valid_features=None, target=None, y_true=None):
@@ -435,21 +302,21 @@ class MachineLearningWidget(QWidget):
             if err:
                 self._show_error(err)
                 return
-            target = self.combo_target.currentText()
+            target = self.panel.combo_target.currentText()
             y_true = clean_df[target].values
             
             if self.model_features and set(self.model_features) != set(valid_features):
                 self._show_error(f"Feature mismatch!\nModel was trained on:\n{', '.join(self.model_features)}\n\nCurrently selected:\n{', '.join(valid_features)}")
                 return
                 
-            if self.combo_task.currentText() == "Classification" and self.combo_tech.currentText() == "XGBoost":
+            if self.panel.combo_task.currentText() == "Classification" and self.tech == "XGBoost":
                 if not pd.api.types.is_numeric_dtype(clean_df[target]):
                      y_true = pd.Categorical(clean_df[target]).codes
 
         try:
             X = clean_df[self.model_features].values
             y_pred = self.trained_model.predict(X)
-            task = self.combo_task.currentText()
+            task = self.panel.combo_task.currentText()
             
             point_size = self.last_props.get('point_size', 5)
             c_base = pg.mkColor(self.last_props.get('color_base', '#1f77b4'))
@@ -507,9 +374,9 @@ class MachineLearningWidget(QWidget):
                 data = {
                     'model': self.trained_model,
                     'features': self.model_features,
-                    'target': getattr(self, 'model_target', self.combo_target.currentText()),
-                    'task': getattr(self, 'model_task', self.combo_task.currentText()),
-                    'tech': getattr(self, 'model_tech', self.combo_tech.currentText())
+                    'target': getattr(self, 'model_target', self.panel.combo_target.currentText()),
+                    'task': getattr(self, 'model_task', self.panel.combo_task.currentText()),
+                    'tech': getattr(self, 'model_tech', self.tech)
                 }
                 joblib.dump(data, file_name)
                 QMessageBox.information(self, "Success", f"Model saved to {file_name}")
@@ -580,9 +447,9 @@ class MachineLearningWidget(QWidget):
             self._show_error(err)
             return
             
-        target = self.combo_target.currentText()
-        task = self.combo_task.currentText()
-        tech = self.combo_tech.currentText()
+        target = self.panel.combo_target.currentText()
+        task = self.panel.combo_task.currentText()
+        tech = self.tech
         
         X = clean_df[valid_features].values
         y = clean_df[target].values
@@ -603,9 +470,9 @@ class MachineLearningWidget(QWidget):
             param_dist = {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 10], 'learning_rate': [0.01, 0.05, 0.1, 0.2]}
         else: return
             
-        self.btn_autotune.setEnabled(False)
-        self.btn_autotune.setText("Tuning...")
-        self.progress_bar.show()
+        self.panel.btn_autotune.setEnabled(False)
+        self.panel.btn_autotune.setText("Tuning...")
+        self.panel.progress_bar.show()
         
         worker = Worker(self._do_auto_tune, model, param_dist, X, y, tech)
         worker.signals.result.connect(self._on_tune_success)
@@ -619,23 +486,23 @@ class MachineLearningWidget(QWidget):
         return search.best_params_
 
     def _on_tune_success(self, best):
-        self.btn_autotune.setEnabled(True)
-        self.btn_autotune.setText("✨ Auto-Tune")
-        self.progress_bar.hide()
-        if 'n_neighbors' in best: self.spin_k.setValue(int(best['n_neighbors']))
-        if 'n_estimators' in best: self.spin_trees.setValue(int(best['n_estimators']))
+        self.panel.btn_autotune.setEnabled(True)
+        self.panel.btn_autotune.setText("✨ Auto-Tune")
+        self.panel.progress_bar.hide()
+        if 'n_neighbors' in best: self.panel.spin_k.setValue(int(best['n_neighbors']))
+        if 'n_estimators' in best: self.panel.spin_trees.setValue(int(best['n_estimators']))
         if 'max_depth' in best:
             depth = best['max_depth']
-            self.spin_depth.setValue(int(depth) if depth is not None else 50)
-        if 'learning_rate' in best: self.spin_lr.setValue(float(best['learning_rate']))
+            self.panel.spin_depth.setValue(int(depth) if depth is not None else 50)
+        if 'learning_rate' in best: self.panel.spin_lr.setValue(float(best['learning_rate']))
             
         QMessageBox.information(self, "Auto-Tune Complete", f"Best parameters found:\n{best}\n\nTraining final model...")
         self.train_model()
 
     def _on_tune_error(self, err_tuple):
-        self.btn_autotune.setEnabled(True)
-        self.btn_autotune.setText("✨ Auto-Tune")
-        self.progress_bar.hide()
+        self.panel.btn_autotune.setEnabled(True)
+        self.panel.btn_autotune.setText("✨ Auto-Tune")
+        self.panel.progress_bar.hide()
         QMessageBox.critical(self, "Auto-Tune Error", str(err_tuple[1]))
 
     def predict_only(self):
