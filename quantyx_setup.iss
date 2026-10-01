@@ -1,6 +1,6 @@
 [Setup]
 AppName=Quantyx
-AppVersion=1.0
+AppVersion=1.1
 AppPublisher=Quantyx
 DefaultDirName={autopf}\Quantyx
 DefaultGroupName=Quantyx
