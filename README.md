@@ -51,20 +51,10 @@ Developed with Python, **PyQt6**, and **PyQtGraph**, Quantyx delivers fast visua
 
 ### Running from Source
 1. Clone the repository.
-2. Create a virtual environment and install the requirements:
-   \\cmd
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   \3. Run the application:
-   \\cmd
-   python main.py
-   \
+2. Create a virtual environment and install the requirements
+
 ### Building Executables
-Quantyx includes an interactive build script (\build.bat\) to easily package the application for distribution. Just run it and choose your preferred output:
-1. **PyInstaller (One-Dir):** Recommended for testing.
-2. **PyInstaller (One-File):** Generates a single standalone \.exe\.
-3. **Pynsist (NSIS Installer):** Generates a professional Windows Setup Installer that installs in the user's \AppData\ directory (Requires no Administrator privileges).
+Quantyx includes two build scripts (\build.bat\) to create a PyInstaller (One-Dir) application and (\create_installer.bat\) to prepare the installer for distribution.
 
 ---
 
