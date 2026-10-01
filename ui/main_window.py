@@ -46,6 +46,9 @@ class MainWindow(QMainWindow):
         self.progress_bar.hide()
         self.statusBar().addPermanentWidget(self.progress_bar)
         
+        # Iniciar verificação de nova versão em background
+        self.check_updates_async()
+        
     def setup_ui(self):
         # Central widget is now a Tab Widget
         self.tab_widget = QTabWidget()
@@ -1079,3 +1082,65 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Success", "Project loaded successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+
+    def check_updates_async(self):
+        from utils.threads import Worker
+        worker = Worker(self._fetch_latest_version)
+        worker.signals.result.connect(self._on_update_check_result)
+        self.threadpool.start(worker)
+
+    def _fetch_latest_version(self):
+        import urllib.request
+        import json
+        try:
+            # Consulta a API de releases do repositório público
+            api_url = "https://api.github.com/repos/Krigsrosa/quantyx-releases/releases/latest"
+            
+            req = urllib.request.Request(api_url, headers={'User-Agent': 'Quantyx-App'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                
+                # O título da release está em 'name' (ex: "Quantyx 1.1.0")
+                # Extraímos a versão removendo a palavra "Quantyx "
+                release_name = data.get('name', '')
+                latest_version = release_name.replace('Quantyx ', '').strip()
+                if not latest_version:
+                    latest_version = data.get('tag_name', '').replace('v', '').strip()
+                    
+                # A URL que abriremos é a página da release para o usuário baixar o executável
+                release_url = data.get('html_url', '')
+                
+                return latest_version, release_url
+        except Exception as e:
+            logger.error(f"Erro ao checar atualizações no GitHub: {e}")
+            return None
+
+    def _on_update_check_result(self, result):
+        if not result:
+            return
+            
+        latest_version, release_url = result
+        if not latest_version:
+            return
+            
+        from utils.version import __version__
+        
+        # Comparação simples (ex: "1.2" > "1.1")
+        try:
+            def parse_v(v): return tuple(map(int, v.split('.')))
+            has_update = parse_v(latest_version) > parse_v(__version__)
+        except ValueError:
+            has_update = latest_version != __version__
+            
+        if has_update:
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Nova Versão Disponível")
+            msg.setText(f"Uma nova versão do Quantyx ({latest_version}) está disponível!\n\nSua versão atual: {__version__}")
+            msg.setInformativeText("Deseja baixar a nova versão agora?")
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+            
+            if msg.exec() == QMessageBox.StandardButton.Yes:
+                import webbrowser
+                if release_url:
+                    webbrowser.open(release_url)
