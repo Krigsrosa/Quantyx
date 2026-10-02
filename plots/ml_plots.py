@@ -482,7 +482,12 @@ class MachineLearningWidget(QWidget):
     def _do_auto_tune(self, model, param_dist, X, y, tech):
         n_iter = 10 if tech != "K-Nearest Neighbors" else 5
         search = RandomizedSearchCV(model, param_distributions=param_dist, n_iter=n_iter, cv=3, random_state=42, n_jobs=-1)
-        search.fit(X, y)
+        
+        # Força o uso de threads para evitar falha no multiprocessing do PyInstaller com loky
+        import joblib
+        with joblib.parallel_backend('threading'):
+            search.fit(X, y)
+            
         return search.best_params_
 
     def _on_tune_success(self, best):
