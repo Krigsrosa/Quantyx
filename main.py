@@ -4,11 +4,11 @@ import os
 # Ensure the root directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtWidgets import QApplication
-from ui.main_window import MainWindow
-from utils.logger import logger
-
 def main():
+    from PyQt6.QtWidgets import QApplication
+    from ui.main_window import MainWindow
+    from utils.logger import logger
+
     logger.info("Starting Quantyx application")
     app = QApplication(sys.argv)
     
@@ -32,4 +32,6 @@ def main():
     sys.exit(app.exec())
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()
