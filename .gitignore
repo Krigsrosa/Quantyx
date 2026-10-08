@@ -30,6 +30,9 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.bat
+*.iss
+write_iss.py
 MANIFEST
 
 # PyInstaller

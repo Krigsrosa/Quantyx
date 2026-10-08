@@ -963,7 +963,7 @@ class MainWindow(QMainWindow):
     def contact_developer(self):
         from PyQt6.QtGui import QDesktopServices
         from PyQt6.QtCore import QUrl
-        url = QUrl("mailto:krigor.silva@arcelormittal.com.br?subject=Suporte Quantyx&body=Hello Krigor,%0D%0A%0D%0AI'd like to talk about the Quantyx.")
+        url = QUrl("mailto:quantyx-team@outlook.com.br?subject=Suporte Quantyx&body=Hello,%0D%0A%0D%0AI would to like to talk about the Quantyx.")
         QDesktopServices.openUrl(url)
 
     def save_project(self):
