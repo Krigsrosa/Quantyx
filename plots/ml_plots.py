@@ -76,14 +76,7 @@ class MachineLearningWidget(QWidget):
         self.last_results_df = None
         
     def populate_target_combo(self, df):
-        if df is None: return
-        current = self.panel.combo_target.currentText()
-        self.panel.combo_target.blockSignals(True)
-        self.panel.combo_target.clear()
-        self.panel.combo_target.addItems(df.columns.tolist())
-        if current in df.columns:
-            self.panel.combo_target.setCurrentText(current)
-        self.panel.combo_target.blockSignals(False)
+        self.panel.populate_target(df)
         
     def trigger_replot(self):
         if self.last_df is not None:
@@ -102,12 +95,13 @@ class MachineLearningWidget(QWidget):
         
         needed_cols = list(set(valid_features))
         if not is_unsup and for_training:
-            target = self.panel.combo_target.currentText()
-            if not target:
-                return None, None, "No target variable selected."
-            needed_cols.append(target)
-            if target in valid_features:
-                valid_features.remove(target)
+            targets = self.panel.get_selected_targets()
+            if not targets:
+                return None, None, "No target variable(s) selected."
+            for t in targets:
+                needed_cols.append(t)
+                if t in valid_features:
+                    valid_features.remove(t)
             
         if is_unsup and tech == "K-Means":
             if self.last_x and self.last_x in self.last_df.columns: needed_cols.append(self.last_x)
@@ -233,49 +227,76 @@ class MachineLearningWidget(QWidget):
             QMessageBox.warning(self, "Training Error", err)
             return
             
-        target = self.panel.combo_target.currentText()
+        targets = self.panel.get_selected_targets()
         task = self.panel.combo_task.currentText()
         tech = self.tech
         
         X = clean_df[valid_features].values
-        y = clean_df[target].values
+        
+        # If single target, keep 1D array to not break compatibility.
+        # If multi-target, use 2D array.
+        if len(targets) == 1:
+            y = clean_df[targets[0]].values
+        else:
+            y = clean_df[targets].values
         
         if task == "Classification":
-            if pd.api.types.is_numeric_dtype(clean_df[target]) and clean_df[target].nunique() > 20:
-                resp = QMessageBox.question(self, "Warning", "Target has many unique numeric values. Are you sure you want Classification?",
-                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                if resp == QMessageBox.StandardButton.No: return
+            for t in targets:
+                if pd.api.types.is_numeric_dtype(clean_df[t]) and clean_df[t].nunique() > 20:
+                    resp = QMessageBox.question(self, "Warning", f"Target '{t}' has many unique numeric values. Are you sure you want Classification?",
+                                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    if resp == QMessageBox.StandardButton.No: return
                 
         self.panel.btn_train.setEnabled(False)
         self.panel.btn_train.setText("Training...")
         self.panel.progress_bar.show()
         
-        worker = Worker(self._do_train_model, X, y, clean_df, valid_features, target, task, tech)
+        worker = Worker(self._do_train_model, X, y, clean_df, valid_features, targets, task, tech)
         worker.signals.result.connect(self._on_train_success)
         worker.signals.error.connect(self._on_train_error)
         self.threadpool.start(worker)
 
-    def _do_train_model(self, X, y, clean_df, valid_features, target, task, tech):
+    def _do_train_model(self, X, y, clean_df, valid_features, targets, task, tech):
         if tech == "K-Nearest Neighbors":
             model = KNeighborsClassifier(n_neighbors=self.panel.spin_k.value()) if task == "Classification" else KNeighborsRegressor(n_neighbors=self.panel.spin_k.value())
         elif tech == "Random Forest":
             model = RandomForestClassifier(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), random_state=42) if task == "Classification" else RandomForestRegressor(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), random_state=42)
         elif tech == "XGBoost":
             if task == "Classification":
-                if not pd.api.types.is_numeric_dtype(y):
-                    y = pd.Categorical(y).codes
+                # For XGBoost classification, labels must be 0, 1, 2...
+                if len(targets) == 1:
+                    if not pd.api.types.is_numeric_dtype(y):
+                        y = pd.Categorical(y).codes
+                else:
+                    import pandas as pd
+                    # Apply to each column if multi-output
+                    y_new = []
+                    for i in range(y.shape[1]):
+                        if not pd.api.types.is_numeric_dtype(y[:, i]):
+                            y_new.append(pd.Categorical(y[:, i]).codes)
+                        else:
+                            y_new.append(y[:, i])
+                    y = np.column_stack(y_new)
+
                 model = XGBClassifier(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), learning_rate=self.panel.spin_lr.value(), random_state=42)
             else:
                 model = XGBRegressor(n_estimators=self.panel.spin_trees.value(), max_depth=self.panel.spin_depth.value(), learning_rate=self.panel.spin_lr.value(), random_state=42)
         
+        if len(targets) > 1:
+            from sklearn.multioutput import MultiOutputRegressor, MultiOutputClassifier
+            if task == "Classification":
+                model = MultiOutputClassifier(model)
+            else:
+                model = MultiOutputRegressor(model)
+
         model.fit(X, y)
-        return model, valid_features, target, task, tech, clean_df, y
+        return model, valid_features, targets, task, tech, clean_df, y
 
     def _on_train_success(self, result):
-        model, valid_features, target, task, tech, clean_df, y_true = result
+        model, valid_features, targets, task, tech, clean_df, y_true = result
         self.trained_model = model
         self.model_features = valid_features
-        self.model_target = target
+        self.model_targets = targets  # Note: renamed to model_targets for multi-output
         self.model_task = task
         self.model_tech = tech
         
@@ -283,7 +304,7 @@ class MachineLearningWidget(QWidget):
         self.panel.btn_train.setText("Train Model")
         self.panel.progress_bar.hide()
         QMessageBox.information(self, "Success", "Model trained successfully!")
-        self._plot_supervised_inference(clean_df, valid_features, target, y_true)
+        self._plot_supervised_inference(clean_df, valid_features, targets, y_true)
 
     def _on_train_error(self, err_tuple):
         self.panel.btn_train.setEnabled(True)
@@ -291,7 +312,7 @@ class MachineLearningWidget(QWidget):
         self.panel.progress_bar.hide()
         QMessageBox.critical(self, "Training Error", str(err_tuple[1]))
 
-    def _plot_supervised_inference(self, clean_df=None, valid_features=None, target=None, y_true=None):
+    def _plot_supervised_inference(self, clean_df=None, valid_features=None, targets=None, y_true=None):
         self.plot_widget.clear()
         if not self.trained_model:
             self._show_error("No model trained or loaded yet.\nClick 'Train Model' or 'Load Model'.")
@@ -302,16 +323,28 @@ class MachineLearningWidget(QWidget):
             if err:
                 self._show_error(err)
                 return
-            target = self.panel.combo_target.currentText()
-            y_true = clean_df[target].values
+            targets = self.panel.get_selected_targets()
+            if len(targets) == 1:
+                y_true = clean_df[targets[0]].values
+            else:
+                y_true = clean_df[targets].values
             
             if self.model_features and set(self.model_features) != set(valid_features):
                 self._show_error(f"Feature mismatch!\nModel was trained on:\n{', '.join(self.model_features)}\n\nCurrently selected:\n{', '.join(valid_features)}")
                 return
                 
             if self.panel.combo_task.currentText() == "Classification" and self.tech == "XGBoost":
-                if not pd.api.types.is_numeric_dtype(clean_df[target]):
-                     y_true = pd.Categorical(clean_df[target]).codes
+                if len(targets) == 1:
+                    if not pd.api.types.is_numeric_dtype(clean_df[targets[0]]):
+                         y_true = pd.Categorical(clean_df[targets[0]]).codes
+                else:
+                    y_new = []
+                    for t in targets:
+                        if not pd.api.types.is_numeric_dtype(clean_df[t]):
+                            y_new.append(pd.Categorical(clean_df[t]).codes)
+                        else:
+                            y_new.append(clean_df[t].values)
+                    y_true = np.column_stack(y_new)
 
         try:
             X = clean_df[self.model_features].values
@@ -322,45 +355,100 @@ class MachineLearningWidget(QWidget):
             c_base = pg.mkColor(self.last_props.get('color_base', '#1f77b4'))
             self.plot_widget.showGrid(x=self.last_props.get('show_grid_x', True), y=self.last_props.get('show_grid_y', True), alpha=0.3)
             
+            # Save metrics to use in Excel export later
+            self.last_metrics = {}
+            
             if task == "Classification":
-                cm = confusion_matrix(y_true, y_pred)
-                acc = accuracy_score(y_true, y_pred)
-                
-                img = pg.ImageItem(cm)
-                colormap = pg.colormap.get('plasma', source='matplotlib')
-                img.setColorMap(colormap)
-                self.plot_widget.addItem(img)
-                
-                # Add text annotations for confusion matrix
-                for i in range(cm.shape[0]):
-                    for j in range(cm.shape[1]):
-                        txt = pg.TextItem(str(cm[i, j]), color='w' if cm[i,j] < cm.max()/2 else 'k', anchor=(0.5, 0.5))
-                        txt.setPos(i + 0.5, j + 0.5)
-                        self.plot_widget.addItem(txt)
-                
-                self.plot_widget.setLabel('bottom', "True Label (reversed axes)")
-                self.plot_widget.setLabel('left', "Predicted Label")
-                self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Confusion Matrix (Accuracy: {acc:.1%})")
+                if len(targets) == 1:
+                    cm = confusion_matrix(y_true, y_pred)
+                    acc = accuracy_score(y_true, y_pred)
+                    self.last_metrics['Global'] = {'Accuracy': acc}
+                    self.last_metrics[targets[0]] = {'Accuracy': acc}
+                    
+                    img = pg.ImageItem(cm)
+                    colormap = pg.colormap.get('plasma', source='matplotlib')
+                    img.setColorMap(colormap)
+                    self.plot_widget.addItem(img)
+                    
+                    for i in range(cm.shape[0]):
+                        for j in range(cm.shape[1]):
+                            txt = pg.TextItem(str(cm[i, j]), color='w' if cm[i,j] < cm.max()/2 else 'k', anchor=(0.5, 0.5))
+                            txt.setPos(i + 0.5, j + 0.5)
+                            self.plot_widget.addItem(txt)
+                    
+                    self.plot_widget.setLabel('bottom', "True Label (reversed axes)")
+                    self.plot_widget.setLabel('left', "Predicted Label")
+                    self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Confusion Matrix (Accuracy: {acc:.1%})")
+                else:
+                    accs = []
+                    for i, t in enumerate(targets):
+                        acc = accuracy_score(y_true[:, i], y_pred[:, i])
+                        accs.append(acc)
+                        self.last_metrics[t] = {'Accuracy': acc}
+                    mean_acc = np.mean(accs)
+                    self.last_metrics['Global'] = {'Accuracy': mean_acc}
+                    
+                    txt = pg.TextItem(f"Multi-Output Classification\nGlobal Accuracy: {mean_acc:.1%}", color='w', anchor=(0.5, 0.5))
+                    self.plot_widget.addItem(txt)
+                    self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Multi-Output Classification (Global Acc: {mean_acc:.1%})")
             else:
-                r2 = r2_score(y_true, y_pred)
-                rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-                
-                scatter = pg.ScatterPlotItem(x=y_true, y=y_pred, size=point_size, pen=None, brush=c_base)
-                self.plot_widget.addItem(scatter)
-                
-                min_val = min(np.min(y_true), np.min(y_pred))
-                max_val = max(np.max(y_true), np.max(y_pred))
-                line = pg.PlotDataItem([min_val, max_val], [min_val, max_val], pen=pg.mkPen('r', width=2, style=Qt.PenStyle.DashLine))
-                self.plot_widget.addItem(line)
-                
-                self.plot_widget.setLabel('bottom', self.last_props.get('custom_xlabel') or f"True {target}")
-                self.plot_widget.setLabel('left', self.last_props.get('custom_ylabel') or f"Predicted {target}")
-                self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Regression Performance (R²={r2:.3f}, RMSE={rmse:.2f})")
+                if len(targets) == 1:
+                    r2 = r2_score(y_true, y_pred)
+                    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+                    mae = np.mean(np.abs(y_true - y_pred))
+                    self.last_metrics['Global'] = {'R2': r2, 'RMSE': rmse, 'MAE': mae}
+                    self.last_metrics[targets[0]] = {'R2': r2, 'RMSE': rmse, 'MAE': mae}
+                    
+                    scatter = pg.ScatterPlotItem(x=y_true, y=y_pred, size=point_size, pen=None, brush=c_base)
+                    self.plot_widget.addItem(scatter)
+                    
+                    min_val = min(np.min(y_true), np.min(y_pred))
+                    max_val = max(np.max(y_true), np.max(y_pred))
+                    line = pg.PlotDataItem([min_val, max_val], [min_val, max_val], pen=pg.mkPen('r', width=2, style=Qt.PenStyle.DashLine))
+                    self.plot_widget.addItem(line)
+                    
+                    self.plot_widget.setLabel('bottom', self.last_props.get('custom_xlabel') or f"True {targets[0]}")
+                    self.plot_widget.setLabel('left', self.last_props.get('custom_ylabel') or f"Predicted {targets[0]}")
+                    self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Regression Performance (R²={r2:.3f}, RMSE={rmse:.2f})")
+                else:
+                    r2s, rmses, maes = [], [], []
+                    for i, t in enumerate(targets):
+                        r2_t = r2_score(y_true[:, i], y_pred[:, i])
+                        rmse_t = np.sqrt(mean_squared_error(y_true[:, i], y_pred[:, i]))
+                        mae_t = np.mean(np.abs(y_true[:, i] - y_pred[:, i]))
+                        r2s.append(r2_t)
+                        rmses.append(rmse_t)
+                        maes.append(mae_t)
+                        self.last_metrics[t] = {'R2': r2_t, 'RMSE': rmse_t, 'MAE': mae_t}
+                    
+                    mean_r2, mean_rmse, mean_mae = np.mean(r2s), np.mean(rmses), np.mean(maes)
+                    self.last_metrics['Global'] = {'R2': mean_r2, 'RMSE': mean_rmse, 'MAE': mean_mae}
+                    
+                    y_true_flat = y_true.flatten()
+                    y_pred_flat = y_pred.flatten()
+                    
+                    scatter = pg.ScatterPlotItem(x=y_true_flat, y=y_pred_flat, size=point_size, pen=None, brush=c_base)
+                    self.plot_widget.addItem(scatter)
+                    
+                    min_val = min(np.min(y_true_flat), np.min(y_pred_flat))
+                    max_val = max(np.max(y_true_flat), np.max(y_pred_flat))
+                    line = pg.PlotDataItem([min_val, max_val], [min_val, max_val], pen=pg.mkPen('r', width=2, style=Qt.PenStyle.DashLine))
+                    self.plot_widget.addItem(line)
+                    
+                    self.plot_widget.setLabel('bottom', self.last_props.get('custom_xlabel') or "True Values (Aggregated)")
+                    self.plot_widget.setLabel('left', self.last_props.get('custom_ylabel') or "Predicted Values (Aggregated)")
+                    self.plot_widget.setTitle(self.last_props.get('custom_title') or f"Multi-Output Regression (Avg R²={mean_r2:.3f}, RMSE={mean_rmse:.2f})")
                 
             res_df = clean_df.copy()
-            res_df[f"True_{target}"] = y_true
-            res_df[f"Predicted_{target}"] = y_pred
+            if len(targets) == 1:
+                res_df[f"True_{targets[0]}"] = y_true
+                res_df[f"Predicted_{targets[0]}"] = y_pred
+            else:
+                for i, t in enumerate(targets):
+                    res_df[f"True_{t}"] = y_true[:, i]
+                    res_df[f"Predicted_{t}"] = y_pred[:, i]
             self.last_results_df = res_df
+            self.last_targets = targets
         except Exception as e:
             self._show_error(f"Inference Error:\n{str(e)}")
             
@@ -374,7 +462,7 @@ class MachineLearningWidget(QWidget):
                 data = {
                     'model': self.trained_model,
                     'features': self.model_features,
-                    'target': getattr(self, 'model_target', self.panel.combo_target.currentText()),
+                    'targets': getattr(self, 'model_targets', self.panel.get_selected_targets()),
                     'task': getattr(self, 'model_task', self.panel.combo_task.currentText()),
                     'tech': getattr(self, 'model_tech', self.tech)
                 }
@@ -390,7 +478,13 @@ class MachineLearningWidget(QWidget):
                 data = joblib.load(file_name)
                 self.trained_model = data['model']
                 self.model_features = data['features']
-                self.model_target = data.get('target', '')
+                
+                # Backward compatibility: Check for 'targets' (new format) or 'target' (old format)
+                if 'targets' in data:
+                    self.model_targets = data['targets']
+                else:
+                    self.model_targets = [data.get('target', '')]
+                    
                 self.model_task = data.get('task', '')
                 self.model_tech = data.get('tech', '')
                 
@@ -404,10 +498,41 @@ class MachineLearningWidget(QWidget):
         if self.last_results_df is None or self.last_results_df.empty:
             QMessageBox.warning(self, "Error", "No results available to download. Please generate a plot first.")
             return
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Results", "", "CSV Files (*.csv)")
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Results", "", "Excel Files (*.xlsx)")
         if file_name:
             try:
-                self.last_results_df.to_csv(file_name, index=False)
+                import pandas as pd
+                from datetime import datetime
+                
+                # 1. Predictions Sheet (Only True and Predicted columns)
+                pred_cols = [c for c in self.last_results_df.columns if c.startswith("True_") or c.startswith("Predicted_")]
+                df_preds = self.last_results_df[pred_cols]
+                
+                with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
+                    df_preds.to_excel(writer, sheet_name='Predictions', index=False)
+                    
+                    # 2. Metrics Sheet
+                    if hasattr(self, 'last_metrics') and self.last_metrics:
+                        metrics_records = []
+                        for target, m_dict in self.last_metrics.items():
+                            row = {'Target': target}
+                            row.update(m_dict)
+                            metrics_records.append(row)
+                        df_metrics = pd.DataFrame(metrics_records)
+                        df_metrics.to_excel(writer, sheet_name='Metrics', index=False)
+                        
+                    # 3. Settings Sheet
+                    settings_records = {
+                        'Export Date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'Task': getattr(self, 'model_task', self.panel.combo_task.currentText()),
+                        'Algorithm': getattr(self, 'model_tech', self.tech),
+                        'Targets': ", ".join(getattr(self, 'last_targets', []))
+                    }
+                    df_settings = pd.DataFrame([settings_records]).T
+                    df_settings.columns = ['Value']
+                    df_settings.index.name = 'Setting'
+                    df_settings.to_excel(writer, sheet_name='Settings')
+                    
                 QMessageBox.information(self, "Success", f"Results successfully exported to {file_name}")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to export results:\n{str(e)}")
@@ -416,11 +541,18 @@ class MachineLearningWidget(QWidget):
         if not self.trained_model:
             QMessageBox.warning(self, "Error", "No trained model available.")
             return
-        if not hasattr(self.trained_model, 'feature_importances_'):
+            
+        importances = None
+        if hasattr(self.trained_model, 'feature_importances_'):
+            importances = self.trained_model.feature_importances_
+        elif hasattr(self.trained_model, 'estimators_') and hasattr(self.trained_model.estimators_[0], 'feature_importances_'):
+            # Average feature importances across all estimators in MultiOutput wrapper
+            importances = np.mean([est.feature_importances_ for est in self.trained_model.estimators_], axis=0)
+            
+        if importances is None:
             QMessageBox.warning(self, "Error", "Feature Importance is only available for Tree-based models.")
             return
             
-        importances = self.trained_model.feature_importances_
         features = self.model_features
         indices = np.argsort(importances)[::-1]
         sorted_importances = importances[indices]
@@ -447,16 +579,30 @@ class MachineLearningWidget(QWidget):
             self._show_error(err)
             return
             
-        target = self.panel.combo_target.currentText()
+        targets = self.panel.get_selected_targets()
         task = self.panel.combo_task.currentText()
         tech = self.tech
         
         X = clean_df[valid_features].values
-        y = clean_df[target].values
+        
+        if len(targets) == 1:
+            y = clean_df[targets[0]].values
+        else:
+            y = clean_df[targets].values
         
         if task == "Classification":
-            if not pd.api.types.is_numeric_dtype(y):
-                y = pd.Categorical(y).codes
+            if len(targets) == 1:
+                if not pd.api.types.is_numeric_dtype(y):
+                    y = pd.Categorical(y).codes
+            else:
+                import pandas as pd
+                y_new = []
+                for i in range(y.shape[1]):
+                    if not pd.api.types.is_numeric_dtype(y[:, i]):
+                        y_new.append(pd.Categorical(y[:, i]).codes)
+                    else:
+                        y_new.append(y[:, i])
+                y = np.column_stack(y_new)
                 
         param_dist = {}
         if tech == "K-Nearest Neighbors":
@@ -469,6 +615,14 @@ class MachineLearningWidget(QWidget):
             model = XGBClassifier(random_state=42) if task == "Classification" else XGBRegressor(random_state=42)
             param_dist = {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 10], 'learning_rate': [0.01, 0.05, 0.1, 0.2]}
         else: return
+        
+        if len(targets) > 1:
+            from sklearn.multioutput import MultiOutputRegressor, MultiOutputClassifier
+            if task == "Classification":
+                model = MultiOutputClassifier(model)
+            else:
+                model = MultiOutputRegressor(model)
+            param_dist = {f"estimator__{k}": v for k, v in param_dist.items()}
             
         self.panel.btn_autotune.setEnabled(False)
         self.panel.btn_autotune.setText("Tuning...")
@@ -494,14 +648,23 @@ class MachineLearningWidget(QWidget):
         self.panel.btn_autotune.setEnabled(True)
         self.panel.btn_autotune.setText("✨ Auto-Tune")
         self.panel.progress_bar.hide()
-        if 'n_neighbors' in best: self.panel.spin_k.setValue(int(best['n_neighbors']))
-        if 'n_estimators' in best: self.panel.spin_trees.setValue(int(best['n_estimators']))
-        if 'max_depth' in best:
-            depth = best['max_depth']
+        
+        # Remove prefix if wrapped in MultiOutput
+        best_clean = {}
+        for k, v in best.items():
+            if k.startswith("estimator__"):
+                best_clean[k.replace("estimator__", "")] = v
+            else:
+                best_clean[k] = v
+                
+        if 'n_neighbors' in best_clean: self.panel.spin_k.setValue(int(best_clean['n_neighbors']))
+        if 'n_estimators' in best_clean: self.panel.spin_trees.setValue(int(best_clean['n_estimators']))
+        if 'max_depth' in best_clean:
+            depth = best_clean['max_depth']
             self.panel.spin_depth.setValue(int(depth) if depth is not None else 50)
-        if 'learning_rate' in best: self.panel.spin_lr.setValue(float(best['learning_rate']))
+        if 'learning_rate' in best_clean: self.panel.spin_lr.setValue(float(best_clean['learning_rate']))
             
-        QMessageBox.information(self, "Auto-Tune Complete", f"Best parameters found:\n{best}\n\nTraining final model...")
+        QMessageBox.information(self, "Auto-Tune Complete", f"Best parameters found:\n{best_clean}\n\nTraining final model...")
         self.train_model()
 
     def _on_tune_error(self, err_tuple):
@@ -530,9 +693,17 @@ class MachineLearningWidget(QWidget):
             y_pred = self.trained_model.predict(X)
             
             res_df = clean_df.copy()
-            res_df[f"Predicted_{getattr(self, 'model_target', 'Target')}"] = y_pred
-            self.last_results_df = res_df
+            targets = getattr(self, 'model_targets', [getattr(self, 'model_target', 'Target')])
             
-            QMessageBox.information(self, "Success", "Predictions generated successfully!\nClick 'Download Results' to save the output CSV.")
+            if len(targets) == 1:
+                res_df[f"Predicted_{targets[0]}"] = y_pred
+            else:
+                for i, t in enumerate(targets):
+                    res_df[f"Predicted_{t}"] = y_pred[:, i]
+            
+            self.last_results_df = res_df
+            self.last_targets = targets
+            
+            QMessageBox.information(self, "Success", "Predictions generated successfully!\nClick 'Download Results' to save the output Excel.")
         except Exception as e:
             QMessageBox.critical(self, "Prediction Error", str(e))

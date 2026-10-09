@@ -713,7 +713,14 @@ class MainWindow(QMainWindow):
         if not data: return
         
         features = data.get('ml_features', data.get('features', []))
-        target = data.get('ml_target', data.get('target', ''))
+        
+        # Retrocompatibility: fetch new 'targets' or fallback to old 'target'
+        targets = data.get('ml_targets', data.get('targets', []))
+        if not targets:
+            legacy_target = data.get('ml_target', data.get('target', ''))
+            if legacy_target:
+                targets = [legacy_target]
+                
         task = data.get('ml_task', data.get('task', ''))
         tech = data.get('ml_tech', data.get('tech', ''))
         
@@ -742,9 +749,8 @@ class MainWindow(QMainWindow):
             idx = self.ml_settings_panel.combo_task.findText(task)
             if idx >= 0: self.ml_settings_panel.combo_task.setCurrentIndex(idx)
             
-        if target:
-            idx = self.ml_settings_panel.combo_target.findText(target)
-            if idx >= 0: self.ml_settings_panel.combo_target.setCurrentIndex(idx)
+        if targets:
+            self.ml_settings_panel.set_selected_targets(targets)
             
         ml_model = data.get('ml_model')
         if ml_model:
@@ -752,12 +758,12 @@ class MainWindow(QMainWindow):
             if active_ml:
                 active_ml.trained_model = ml_model
                 active_ml.model_features = features
-                active_ml.model_target = target
+                active_ml.model_targets = targets
                 active_ml.model_task = task
                 active_ml.model_tech = tech
                 active_ml.model_loaded.emit({
                     'features': features,
-                    'target': target,
+                    'targets': targets,
                     'task': task,
                     'tech': tech
                 })
@@ -989,7 +995,7 @@ class MainWindow(QMainWindow):
                 ml_data = {
                     'ml_model': active_ml.trained_model,
                     'ml_features': active_ml.model_features,
-                    'ml_target': getattr(active_ml, 'model_target', ''),
+                    'ml_targets': getattr(active_ml, 'model_targets', []),
                     'ml_task': getattr(active_ml, 'model_task', ''),
                     'ml_tech': getattr(active_ml, 'model_tech', '')
                 }
@@ -1112,7 +1118,7 @@ class MainWindow(QMainWindow):
                 
                 return latest_version, release_url
         except Exception as e:
-            logger.error(f"Erro ao checar atualizações no GitHub: {e}")
+            logger.error(f"Error checking updates on GitHub: {e}")
             return None
 
     def _on_update_check_result(self, result):
@@ -1134,9 +1140,9 @@ class MainWindow(QMainWindow):
             
         if has_update:
             msg = QMessageBox(self)
-            msg.setWindowTitle("Nova Versão Disponível")
-            msg.setText(f"Uma nova versão do Quantyx ({latest_version}) está disponível!\n\nSua versão atual: {__version__}")
-            msg.setInformativeText("Deseja baixar a nova versão agora?")
+            msg.setWindowTitle("New Version Available")
+            msg.setText(f"A new version of Quantyx ({latest_version}) is available!\n\nYour current version: {__version__}")
+            msg.setInformativeText("Do you want to download the new version now?")
             msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             msg.setDefaultButton(QMessageBox.StandardButton.Yes)
             
