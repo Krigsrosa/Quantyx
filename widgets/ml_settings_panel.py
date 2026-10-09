@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QComboBox, QLabel, 
-                             QSpinBox, QPushButton, QDoubleSpinBox, QProgressBar, QHBoxLayout)
+                             QSpinBox, QPushButton, QDoubleSpinBox, QProgressBar, QHBoxLayout,
+                             QListWidget, QAbstractItemView)
 from PyQt6.QtCore import pyqtSignal
 
 class MLSettingsPanel(QWidget):
@@ -21,7 +22,10 @@ class MLSettingsPanel(QWidget):
         self.combo_task = QComboBox()
         self.combo_task.addItems(["Classification", "Regression"])
         
-        self.combo_target = QComboBox()
+        # Changed from QComboBox to QListWidget for multi-output support
+        self.list_target = QListWidget()
+        self.list_target.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.list_target.setMaximumHeight(80)
         
         self.spin_k = QSpinBox()
         self.spin_k.setRange(2, 50)
@@ -70,22 +74,18 @@ class MLSettingsPanel(QWidget):
         self.progress_bar.hide()
         
         # Layouts
-
         self.btn_return = QPushButton("⬅ Return to Data Exploration")
         self.btn_return.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
         self.btn_return.clicked.connect(self.return_requested.emit)
         self.layout.addWidget(self.btn_return)
         self.layout.addSpacing(10)
         
-
         self.btn_update = QPushButton("Update Plot")
         self.btn_update.setStyleSheet("background-color: #3498db; color: white; font-weight: bold;")
         self.btn_update.clicked.connect(self.update_plot_requested.emit)
         self.layout.addWidget(self.btn_update)
         
         self.w_task = QWidget()
-
-
         l_task = QHBoxLayout(self.w_task)
         l_task.setContentsMargins(0,0,0,0)
         l_task.addWidget(QLabel("Task:"))
@@ -93,10 +93,10 @@ class MLSettingsPanel(QWidget):
         self.layout.addWidget(self.w_task)
         
         self.w_target = QWidget()
-        l_target = QHBoxLayout(self.w_target)
+        l_target = QVBoxLayout(self.w_target)
         l_target.setContentsMargins(0,0,0,0)
-        l_target.addWidget(QLabel("Target (Y):"))
-        l_target.addWidget(self.combo_target)
+        l_target.addWidget(QLabel("Target(s) (Y):"))
+        l_target.addWidget(self.list_target)
         self.layout.addWidget(self.w_target)
         
         self.layout.addSpacing(15)
@@ -140,17 +140,26 @@ class MLSettingsPanel(QWidget):
         self.spin_depth.setVisible(tech in ["Random Forest", "XGBoost"])
         self.lbl_lr.setVisible(tech == "XGBoost")
         self.spin_lr.setVisible(tech == "XGBoost")
-        self.lbl_lr.setVisible(tech == "XGBoost")
-        self.spin_lr.setVisible(tech == "XGBoost")
         self.btn_importance.setVisible(tech in ["Random Forest", "XGBoost"])
         self.btn_update.setVisible(tech in ["PCA", "K-Means"])
-        
+
+    def get_selected_targets(self):
+        return [item.text() for item in self.list_target.selectedItems()]
+
+    def set_selected_targets(self, targets):
+        self.list_target.clearSelection()
+        if not isinstance(targets, list):
+            targets = [targets]
+        for i in range(self.list_target.count()):
+            item = self.list_target.item(i)
+            if item.text() in targets:
+                item.setSelected(True)
+
     def populate_target(self, df):
         if df is None: return
-        current = self.combo_target.currentText()
-        self.combo_target.blockSignals(True)
-        self.combo_target.clear()
-        self.combo_target.addItems(df.columns.tolist())
-        if current in df.columns:
-            self.combo_target.setCurrentText(current)
-        self.combo_target.blockSignals(False)
+        current_targets = self.get_selected_targets()
+        self.list_target.blockSignals(True)
+        self.list_target.clear()
+        self.list_target.addItems(df.columns.tolist())
+        self.set_selected_targets(current_targets)
+        self.list_target.blockSignals(False)
