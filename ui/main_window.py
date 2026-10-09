@@ -122,7 +122,7 @@ class MainWindow(QMainWindow):
         
     def setup_docks(self):
         # 1. Variable List Dock (Left)
-        self.var_dock = QDockWidget("Variables & Axes", self)
+        self.var_dock = QDockWidget("Variables", self)
         self.var_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
         
         var_widget = QWidget()
@@ -132,7 +132,7 @@ class MainWindow(QMainWindow):
         self.var_list = QListWidget()
         self.var_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         
-        var_layout.addWidget(QLabel("All Variables:"))
+        # Text removed as per request
         var_layout.addWidget(self.var_list)
         
         var_layout.addWidget(QLabel("X Axis:"))
@@ -162,12 +162,14 @@ class MainWindow(QMainWindow):
         
         # 2. Data Table Dock (Bottom)
         self.data_dock = QDockWidget("Data View", self)
+        self.data_dock.setTitleBarWidget(QWidget())
         self.data_table = DataTableView()
         self.data_dock.setWidget(self.data_table)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.data_dock)
         
         # 3. Filter Dock (Right)
         self.filter_dock = QDockWidget("Filters", self)
+        self.filter_dock.setTitleBarWidget(QWidget())
         self.filter_panel = FilterPanel(self.data_manager)
         self.filter_dock.setWidget(self.filter_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.filter_dock)
@@ -176,6 +178,7 @@ class MainWindow(QMainWindow):
         
         # 4. Properties Dock (Right)
         self.props_dock = QDockWidget("Plot Properties", self)
+        self.props_dock.setTitleBarWidget(QWidget())
         
         from PyQt6.QtWidgets import QScrollArea
         scroll_area = QScrollArea()
@@ -191,6 +194,7 @@ class MainWindow(QMainWindow):
         
         # 4.5 Gallery Dock (Right)
         self.gallery_dock = QDockWidget("Gallery", self)
+        self.gallery_dock.setTitleBarWidget(QWidget())
         self.gallery_dock.setWidget(self.report_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.gallery_dock)
         
@@ -200,6 +204,7 @@ class MainWindow(QMainWindow):
         
         # 4.5. ML Settings Dock (Right, hidden by default, tabified between Props and Gallery)
         self.ml_dock = QDockWidget("ML Settings", self)
+        self.ml_dock.setTitleBarWidget(QWidget())
         
         ml_scroll = QScrollArea()
         ml_scroll.setWidgetResizable(True)
@@ -214,6 +219,7 @@ class MainWindow(QMainWindow):
         
         # 5. Preprocessing Dock (Right, hidden by default)
         self.prep_dock = QDockWidget("Preprocessing Settings", self)
+        self.prep_dock.setTitleBarWidget(QWidget())
         from ui.preprocessing_panel import PreprocessingPanel
         self.prep_panel = PreprocessingPanel(self.data_manager)
         
@@ -366,7 +372,7 @@ class MainWindow(QMainWindow):
             self.lbl_color_by.hide()
             self.combo_color.hide()
             self.edit_color_rule.hide()
-            self.btn_update_plot.show()
+            self.btn_update_plot.hide()
             self.gallery_dock.show()
             self.ml_dock.show()
             self.ml_dock.raise_()
