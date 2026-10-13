@@ -1,95 +1,381 @@
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextBrowser, QPushButton
-from PyQt6.QtCore import Qt
-
-HELP_HTML = """
-<h1>Quantyx - Industrial Data Analysis User Guide</h1>
-<p>Welcome to <b>Quantyx</b>, a professional desktop application designed for exploratory data analysis (EDA), preprocessing, and machine learning in industrial environments.</p>
-
-<h2>1. Getting Started & Data Loading</h2>
-<ul>
-    <li><b>Local Files:</b> Go to <i>File -> Open Data...</i> to load CSV, XLSX, Parquet, or Feather files.</li>
-    <li><b>Databricks SQL:</b> Go to <i>SQL Data -> Import from Databricks SQL...</i> to write custom queries and securely download data directly from your Data Lakehouse. Your connection credentials and executed queries are securely saved locally, allowing you to quickly reuse previous scripts from the dropdown menu.</li>
-    <li><b>The Interface:</b> The application uses dockable panels (Variables, Filters, Data View, Properties). You can drag, stack, or detach them.</li>
-</ul>
-
-<h2>2. Data Preprocessing</h2>
-<p>Go to <i>Data Preprocessing -> Open Preprocessing Tool</i> to clean your data before plotting. Operations are processed as fast background tasks with progress indicators, ensuring the interface remains fluid:</p>
-<ul>
-    <li><b>Missing Value Imputation:</b> Replace NaNs with the Mean, Median, Mode, or use advanced <b>KNN Imputation</b> for intelligent filling.</li>
-    <li><b>Scaling:</b> Normalize your numeric columns using <i>MinMax</i> or <i>StandardScaler</i>.</li>
-    <li><b>Outlier Management:</b> Verify variables using the central plot. Manually select noisy points on the interactive scatter plot to remove them, or use the <b>Auto Detect Outliers</b> button (powered by <i>Isolation Forest</i>) to automatically highlight and remove anomalies.</li>
-</ul>
-
-<h2>3. Plotting & Visualization</h2>
-<p><i>Note: To prevent freezing with large datasets, plots do not render automatically. Select your variables and click <b>Update Plot</b> to render the graph.</i></p>
-<ul>
-    <li><b>Scatter Plot:</b> Render huge datasets fast. Supports color-coding by categories.</li>
-    <li><b>Line Plot:</b> Great for time-series. Automatically detects datetime columns and formats the X-axis dynamically to prevent overlap.</li>
-    <li><b>Color Rules:</b> You can color-code your plots based on mathematical conditions without modifying the dataset. Just type a rule in the <i>Color by</i> text box (e.g., <code>Temperature > 100</code>).</li>
-    <li><b>Histogram & Bar Plot:</b> Explore distributions and counts. The Bar Plot specifically supports categorical grouping on the X-axis.</li>
-    <li><b>Boxplot:</b> Analyze statistical spread. Check multiple boxes in the <i>All Variables</i> list to create nested/multi-level X-axis groups!</li>
-    <li><b>Parallel Coordinates:</b> Select multiple numeric variables to map multidimensional relationships. Features full interactivity:
-        <ul>
-            <li><b>Click a line:</b> Highlights the specific data profile in red and displays its exact values across all dimensions.</li>
-            <li><b>Drag to select:</b> Draw a yellow selection box over the axes to instantly filter and highlight all lines passing through that region.</li>
-        </ul>
-    </li>
-    <li><b>Correlation Matrix:</b> Select multiple numeric variables to analyze their Pearson correlation coefficients.</li>
-</ul>
-
-<h2>4. Customizing Plots (Plot Properties)</h2>
-<ul>
-    <li><b>Titles, Labels & Limits:</b> Set custom titles, axis labels, and draw horizontal dashed Limit Lines.</li>
-    <li><b>Boxplot Annotations:</b> Toggle exact statistical values (Means, Q1, Q3) directly over the boxes, or enable the <i>Show X-Axis Data Table</i> for Minitab-style statistical tables (cleanly aligned under the axis with multiple nested variables).</li>
-    <li><b>Dynamic Theming:</b> Change the base palette, and override individual category colors using the dynamic color pickers at the bottom of the properties panel.</li>
-</ul>
-
-<h2>5. Filtering Data</h2>
-<p>The <b>Filters</b> dock allows you to slice your dataset dynamically. Elements are tightly packed at the top for faster access. All plots and tables update automatically to reflect the subset.</p>
-<ul>
-    <li><b>Numeric Filters:</b> Set mathematical conditions (e.g., &gt;, &lt;).</li>
-    <li><b>Categorical Filters:</b> Check or uncheck values. Uses cascading logic (filtering one column automatically prunes the available options for subsequent columns). Use the <i>Select All / Deselect All</i> buttons for speed.</li>
-    <li><b>Date Filters:</b> When selecting a datetime column, the filter panel automatically adapts to a calendar-based Date Range picker for seamless slicing.</li>
-</ul>
-
-<h2>6. Machine Learning Hub</h2>
-<p>Navigate to <i>Machine Learning -> Open ML Hub</i> to access the dedicated predictive environment. The interface intelligently isolates itself, revealing the <b>ML Settings</b> dock where you can manage Targets, Tasks, and Hyperparameters.</p>
-<ul>
-    <li><b>Supervised Learning:</b> Train classification or regression models using <b>KNN, Random Forest, or XGBoost</b>. Check input features in the <i>All Variables</i> list on the left, select your <i>Target</i>, and hit <b>Train Model</b>. View confusion matrices, scatter plots, and R² scores.</li>
-    <li><b>Prediction & Inference:</b> Use the <b>Predict</b> button to run new data through a loaded or trained model (even if the dataset lacks the Target column). The predictions can then be saved using <b>Download Results</b>.</li>
-    <li><b>Unsupervised Learning:</b> Use <b>K-Means Clustering</b> or <b>PCA</b> to find hidden patterns. PCA uniquely keeps the <i>Color By</i> option visible to help visualize your principal components!</li>
-    <li><b>Auto-Tune:</b> Automatically optimize model hyperparameters using GridSearchCV.</li>
-    <li><b>Feature Importance:</b> Extract the most critical variables driving your model's predictions.</li>
-    <li><b>Save/Load Projects:</b> Entire sessions (Data, Filters, and ML Models) are saved into `.quantyx` files. Loading a project intelligently returns you straight to the ML Hub if a model was saved!</li>
-</ul>
-
-<h2>7. Settings & Theming</h2>
-<ul>
-    <li><b>Dark / Light Mode:</b> Go to <i>Settings -> Toggle Dark/Light Mode</i> to switch the application theme. Your preference is automatically saved and remembered for the next launch.</li>
-    <li><b>Template Center:</b> Manage your PowerPoint templates directly in <i>Settings -> Open Template Directory</i> to add or remove your own `.pptx` files.</li>
-</ul>
-
-<h2>8. Gallery & Exporting</h2>
-<ul>
-    <li><b>Generate PowerPoint:</b> Click the 📸 camera icon in the toolbar. The system detects if you are viewing Standard Plots, Preprocessing, or the ML Hub, and captures the exact visualization you see! Inside the <b>Gallery</b> tab on the right sidebar, select your custom template and click "Generate PowerPoint" to compile a professional <code>.pptx</code> presentation automatically.</li>
-    <li><b>Export Single Plots:</b> Go to <i>File -> Export Plot (PNG/PDF)</i> for high-res images.</li>
-    <li><b>Export Filtered Data:</b> Save your cleaned, preprocessed, and filtered dataset to a new Excel file (<code>.xlsx</code>).</li>
-</ul>
 """
+Quantyx Documentation System - Interactive User Guide Dialog
+Interactive help window with topic navigation, real-time search,
+styled documentation viewer, and PDF/DOCX export capabilities.
+"""
+
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget, QListWidgetItem,
+    QTextBrowser, QLineEdit, QPushButton, QLabel, QWidget, QFrame
+)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QIcon, QKeySequence, QShortcut
+
+from ui.help_content import get_all_topics, get_topic_by_id, search_topics
+from ui.doc_exporter import build_full_html_document, export_to_pdf, export_to_docx
+from utils.version import __version__
+from utils.theme_manager import ThemeManager
 
 class HelpDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Quantyx - User Guide")
-        self.resize(800, 700)
+        self.setWindowTitle(f"Quantyx - User Guide & Technical Documentation (v{__version__})")
+        self.resize(1150, 780)
+        self.setMinimumSize(850, 600)
         
-        layout = QVBoxLayout(self)
+        self.is_dark = ThemeManager.is_dark()
+        self.current_topic_id = "intro"
+        self.all_topics = get_all_topics()
         
-        browser = QTextBrowser()
-        browser.setHtml(HELP_HTML)
-        browser.setOpenExternalLinks(True)
-        layout.addWidget(browser)
+        self.setup_ui()
+        self.apply_theme()
+        self.populate_topics()
+        self.load_topic("intro")
         
-        btn_close = QPushButton("Close")
-        btn_close.clicked.connect(self.accept)
-        layout.addWidget(btn_close)
+        # Shortcut Ctrl+F to focus search
+        self.shortcut_find = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.shortcut_find.activated.connect(self.focus_search)
+        
+    def setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setSpacing(10)
+        
+        # --- 1. Top Bar (Header & Actions) ---
+        top_bar = QHBoxLayout()
+        top_bar.setSpacing(10)
+        
+        # Guide Title
+        title_box = QVBoxLayout()
+        title_box.setSpacing(1)
+        lbl_title = QLabel("📘 Quantyx Documentation Center")
+        lbl_title.setStyleSheet("font-size: 17px; font-weight: bold; color: #3498db;")
+        lbl_subtitle = QLabel(f"Comprehensive User Guide & Technical Reference • v{__version__}")
+        lbl_subtitle.setStyleSheet("font-size: 11px; color: gray;")
+        title_box.addWidget(lbl_title)
+        title_box.addWidget(lbl_subtitle)
+        top_bar.addLayout(title_box)
+        
+        top_bar.addStretch()
+        
+        # Real-time search field
+        self.edit_search = QLineEdit()
+        self.edit_search.setPlaceholderText("🔍 Search guide (Ctrl+F)... e.g. Isolation Forest, Multi-Output, PCA")
+        self.edit_search.setMinimumWidth(340)
+        self.edit_search.setClearButtonEnabled(True)
+        self.edit_search.textChanged.connect(self.on_search_text_changed)
+        top_bar.addWidget(self.edit_search)
+        
+        # Export Buttons
+        self.btn_export_pdf = QPushButton("📄 Export PDF")
+        self.btn_export_pdf.setToolTip("Export the complete formatted manual as a high-resolution PDF document.")
+        self.btn_export_pdf.setStyleSheet("font-weight: bold; padding: 6px 12px; background-color: #2980b9; color: white; border-radius: 4px;")
+        self.btn_export_pdf.clicked.connect(lambda: export_to_pdf(self))
+        top_bar.addWidget(self.btn_export_pdf)
+        
+        self.btn_export_docx = QPushButton("📝 Export Word")
+        self.btn_export_docx.setToolTip("Export the complete manual as a structured Microsoft Word (.docx) document.")
+        self.btn_export_docx.setStyleSheet("font-weight: bold; padding: 6px 12px; background-color: #27ae60; color: white; border-radius: 4px;")
+        self.btn_export_docx.clicked.connect(lambda: export_to_docx(self))
+        top_bar.addWidget(self.btn_export_docx)
+        
+        main_layout.addLayout(top_bar)
+        
+        # Divider line
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        main_layout.addWidget(line)
+        
+        # --- 2. Central Splitter (Topics on left, Content on right) ---
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left Panel (Topic List)
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+        
+        self.lbl_topics_count = QLabel(f"Documentation Topics ({len(self.all_topics)})")
+        self.lbl_topics_count.setStyleSheet("font-weight: bold; font-size: 12px; color: #7f8c8d;")
+        left_layout.addWidget(self.lbl_topics_count)
+        
+        self.topic_list = QListWidget()
+        self.topic_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.topic_list.itemClicked.connect(self.on_topic_selected)
+        left_layout.addWidget(self.topic_list)
+        
+        # Button to switch between single topic and full manual
+        self.btn_full_manual = QPushButton("📖 View Full Manual")
+        self.btn_full_manual.setToolTip("Display all 25 sections in a continuous scroll view.")
+        self.btn_full_manual.clicked.connect(self.load_full_manual)
+        left_layout.addWidget(self.btn_full_manual)
+        
+        self.splitter.addWidget(left_widget)
+        
+        # Right Panel (Documentation Browser)
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(6)
+        
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setSearchPaths([])
+        right_layout.addWidget(self.browser)
+        
+        self.splitter.addWidget(right_widget)
+        self.splitter.setSizes([320, 800])
+        main_layout.addWidget(self.splitter, stretch=1)
+        
+        # --- 3. Bottom Bar (Status & Close) ---
+        bottom_bar = QHBoxLayout()
+        lbl_hint = QLabel("💡 Tip: Use quick search to locate specific parameters, or click 'Export' to generate an offline manual.")
+        lbl_hint.setStyleSheet("font-size: 11px; color: gray;")
+        bottom_bar.addWidget(lbl_hint)
+        
+        bottom_bar.addStretch()
+        
+        self.btn_close = QPushButton("Close")
+        self.btn_close.setFixedWidth(100)
+        self.btn_close.clicked.connect(self.accept)
+        bottom_bar.addWidget(self.btn_close)
+        
+        main_layout.addLayout(bottom_bar)
+        
+    def focus_search(self):
+        self.edit_search.setFocus()
+        self.edit_search.selectAll()
+
+    def apply_theme(self):
+        bg = "#1e1e1e" if self.is_dark else "#ffffff"
+        fg = "#f0f0f0" if self.is_dark else "#2c3e50"
+        list_bg = "#252526" if self.is_dark else "#f8f9fa"
+        border_col = "#3e3e42" if self.is_dark else "#dcdde1"
+        item_hover = "#2a2d2e" if self.is_dark else "#e8ecf1"
+        item_selected = "#094771" if self.is_dark else "#3498db"
+        
+        self.topic_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {list_bg};
+                color: {fg};
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 12px;
+            }}
+            QListWidget::item {{
+                padding: 7px 8px;
+                border-radius: 4px;
+                margin-bottom: 2px;
+            }}
+            QListWidget::item:hover {{
+                background-color: {item_hover};
+            }}
+            QListWidget::item:selected {{
+                background-color: {item_selected};
+                color: white;
+                font-weight: bold;
+            }}
+        """)
+        
+        self.browser.setStyleSheet(f"""
+            QTextBrowser {{
+                background-color: {bg};
+                color: {fg};
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                padding: 12px;
+            }}
+        """)
+        
+        self.edit_search.setStyleSheet(f"""
+            QLineEdit {{
+                padding: 6px 10px;
+                border: 1px solid {border_col};
+                border-radius: 4px;
+                background-color: {list_bg};
+                color: {fg};
+                font-size: 12px;
+            }}
+        """)
+
+    def populate_topics(self, filtered_topics=None):
+        self.topic_list.blockSignals(True)
+        self.topic_list.clear()
+        
+        topics_to_show = filtered_topics if filtered_topics is not None else self.all_topics
+        self.lbl_topics_count.setText(f"Documentation Topics ({len(topics_to_show)})")
+        
+        for topic in topics_to_show:
+            item = QListWidgetItem(topic["title"])
+            item.setData(Qt.ItemDataRole.UserRole, topic["id"])
+            item.setToolTip(topic["summary"])
+            self.topic_list.addItem(item)
+            
+        self.topic_list.blockSignals(False)
+        
+        # Selecionar o primeiro item se houver
+        if self.topic_list.count() > 0:
+            self.topic_list.setCurrentRow(0)
+
+    def on_search_text_changed(self, text):
+        query = text.strip()
+        if not query:
+            self.populate_topics()
+            self.load_topic(self.current_topic_id)
+            return
+            
+        filtered = search_topics(query)
+        self.populate_topics(filtered)
+        
+        if filtered:
+            self.load_topic(filtered[0]["id"])
+            # Tentar destacar a busca no texto do navegador
+            self.browser.find(query)
+
+    def on_topic_selected(self, item):
+        topic_id = item.data(Qt.ItemDataRole.UserRole)
+        if topic_id:
+            self.load_topic(topic_id)
+
+    def get_styled_html_for_topic(self, topic):
+        bg_color = "#1e1e1e" if self.is_dark else "#ffffff"
+        text_color = "#e0e0e0" if self.is_dark else "#2c3e50"
+        heading_color = "#63b3ed" if self.is_dark else "#1a365d"
+        subheading_color = "#90cdf4" if self.is_dark else "#2b6cb0"
+        border_color = "#4a5568" if self.is_dark else "#e2e8f0"
+        box_bg = "#2d3748" if self.is_dark else "#f7fafc"
+        tip_bg = "#2a4365" if self.is_dark else "#ebf8ff"
+        table_hdr_bg = "#2d3748" if self.is_dark else "#edf2f7"
+        
+        css = f"""
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.6;
+            color: {text_color};
+            background-color: {bg_color};
+            margin: 15px;
+        }}
+        h2 {{
+            color: {heading_color};
+            font-size: 20px;
+            border-bottom: 2px solid {border_color};
+            padding-bottom: 6px;
+            margin-top: 5px;
+            margin-bottom: 12px;
+        }}
+        h3 {{
+            color: {subheading_color};
+            font-size: 15px;
+            margin-top: 18px;
+            margin-bottom: 8px;
+        }}
+        h4 {{
+            color: {subheading_color};
+            font-size: 13px;
+            margin-top: 12px;
+            margin-bottom: 4px;
+        }}
+        p {{
+            margin-bottom: 10px;
+        }}
+        ul, ol {{
+            margin-top: 4px;
+            margin-bottom: 12px;
+            padding-left: 24px;
+        }}
+        li {{
+            margin-bottom: 4px;
+        }}
+        code {{
+            background-color: {box_bg};
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+            font-size: 12px;
+        }}
+        .note-box {{
+            background-color: {box_bg};
+            border-left: 4px solid #3182ce;
+            padding: 10px 14px;
+            margin: 12px 0;
+            border-radius: 3px;
+        }}
+        .tip-box {{
+            background-color: {tip_bg};
+            border-left: 4px solid #38a169;
+            padding: 10px 14px;
+            margin: 12px 0;
+            border-radius: 3px;
+        }}
+        .tutorial-box {{
+            background-color: {box_bg};
+            border: 1px solid {border_color};
+            border-left: 4px solid #d69e2e;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 4px;
+        }}
+        .model-card {{
+            background-color: {box_bg};
+            border: 1px solid {border_color};
+            border-left: 4px solid #805ad5;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 4px;
+        }}
+        .faq-item {{
+            background-color: {box_bg};
+            border: 1px solid {border_color};
+            padding: 10px 14px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }}
+        table.doc-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 12px;
+        }}
+        table.doc-table th {{
+            background-color: {table_hdr_bg};
+            color: {heading_color};
+            font-weight: bold;
+            text-align: left;
+            padding: 8px 10px;
+            border: 1px solid {border_color};
+        }}
+        table.doc-table td {{
+            padding: 7px 10px;
+            border: 1px solid {border_color};
+            vertical-align: top;
+        }}
+        """
+        
+        html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><style>{css}</style></head><body>
+        <div style='margin-bottom: 10px;'>
+            <span style='background-color: #3182ce; color: white; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; text-transform: uppercase;'>{topic['category']}</span>
+        </div>
+        {topic['content_html']}
+        </body></html>"""
+        return html
+
+    def load_topic(self, topic_id):
+        self.current_topic_id = topic_id
+        topic = get_topic_by_id(topic_id)
+        if topic:
+            html = self.get_styled_html_for_topic(topic)
+            self.browser.setHtml(html)
+            
+            # Sincronizar seleção na lista se necessário
+            for i in range(self.topic_list.count()):
+                item = self.topic_list.item(i)
+                if item.data(Qt.ItemDataRole.UserRole) == topic_id:
+                    self.topic_list.setCurrentItem(item)
+                    break
+
+    def load_full_manual(self):
+        html = build_full_html_document(is_dark=self.is_dark)
+        self.browser.setHtml(html)

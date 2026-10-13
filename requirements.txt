@@ -8,6 +8,7 @@ pyarrow>=16.0.0
 fastparquet>=2024.2.0
 openpyxl>=3.1.2
 python-pptx
+python-docx>=1.1.0
 databricks==0.2
 databricks-connect==15.4.2
 databricks-sdk==0.35.0
