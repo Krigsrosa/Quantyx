@@ -21,52 +21,65 @@ class MLSettingsPanel(QWidget):
         
         self.combo_task = QComboBox()
         self.combo_task.addItems(["Classification", "Regression"])
+        self.combo_task.setToolTip("Supervised task type: Classification (discrete classes) or Regression (continuous numerical values).")
         
         # Changed from QComboBox to QListWidget for multi-output support
         self.list_target = QListWidget()
         self.list_target.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.list_target.setMaximumHeight(80)
+        self.list_target.setToolTip("Target variable(s) (Y). Select 1 target for Single-Output, or hold Ctrl/Shift to select multiple targets (Multi-Output).")
         
         self.spin_k = QSpinBox()
         self.spin_k.setRange(2, 50)
         self.spin_k.setValue(3)
+        self.spin_k.setToolTip("Number of nearest neighbors (KNN) or number of clusters (K-Means).\nRecommended range: 3 to 15 (default: 3).")
         self.lbl_k = QLabel("K:")
         
         self.spin_trees = QSpinBox()
         self.spin_trees.setRange(10, 1000)
         self.spin_trees.setValue(100)
+        self.spin_trees.setToolTip("Number of trees in the ensemble (n_estimators) for Random Forest or XGBoost.\nHigher values improve accuracy and stability at the cost of training time.\nRecommended range: 50 to 300 (default: 100).")
         self.lbl_trees = QLabel("Trees:")
         
         self.spin_depth = QSpinBox()
         self.spin_depth.setRange(1, 100)
         self.spin_depth.setValue(6)
+        self.spin_depth.setToolTip("Maximum depth of each decision tree (max_depth).\nControls model complexity and prevents overfitting.\nRecommended range: 3 to 10 (default: 6).")
         self.lbl_depth = QLabel("Max Depth:")
         
         self.spin_lr = QDoubleSpinBox()
         self.spin_lr.setRange(0.001, 1.0)
         self.spin_lr.setSingleStep(0.05)
         self.spin_lr.setValue(0.1)
+        self.spin_lr.setToolTip("Learning rate for XGBoost (eta).\nControls the shrinkage step at each boosting iteration.\nRecommended range: 0.01 to 0.2 (default: 0.1).")
         self.lbl_lr = QLabel("Learning Rate:")
         
         self.btn_train = QPushButton("Train Model")
+        self.btn_train.setToolTip("Trains the selected model using configured input features and target variables.")
         self.btn_train.clicked.connect(self.train_requested.emit)
         
         self.btn_predict = QPushButton("Predict")
+        self.btn_predict.setToolTip("Generates predictions on new data using the currently trained or loaded model.")
         self.btn_predict.clicked.connect(self.predict_requested.emit)
         
         self.btn_autotune = QPushButton("✨ Auto-Tune")
+        self.btn_autotune.setToolTip("Automatic hyperparameter optimization via RandomizedSearchCV with 3-fold cross-validation.\nExplores candidate combinations and applies the best parameters.")
         self.btn_autotune.clicked.connect(self.autotune_requested.emit)
         
         self.btn_importance = QPushButton("Feature Importance")
+        self.btn_importance.setToolTip("Displays the relative importance of each feature in decision making (Random Forest & XGBoost).")
         self.btn_importance.clicked.connect(self.importance_requested.emit)
         
         self.btn_save = QPushButton("Save Model")
+        self.btn_save.setToolTip("Saves the trained model, feature names, and metadata to a serialized file (.pkl).")
         self.btn_save.clicked.connect(self.save_requested.emit)
         
         self.btn_load = QPushButton("Load Model")
+        self.btn_load.setToolTip("Loads a previously saved model (.pkl) for immediate inference.")
         self.btn_load.clicked.connect(self.load_requested.emit)
         
         self.btn_download = QPushButton("Download Results")
+        self.btn_download.setToolTip("Exports a comprehensive Excel (.xlsx) report containing Predictions, Metrics, and Settings sheets.")
         self.btn_download.clicked.connect(self.download_requested.emit)
         
         self.progress_bar = QProgressBar()
@@ -75,12 +88,14 @@ class MLSettingsPanel(QWidget):
         
         # Layouts
         self.btn_return = QPushButton("⬅ Return to Data Exploration")
+        self.btn_return.setToolTip("Returns to the primary data exploration and plotting view.")
         self.btn_return.setStyleSheet("background-color: #2c3e50; color: white; font-weight: bold;")
         self.btn_return.clicked.connect(self.return_requested.emit)
         self.layout.addWidget(self.btn_return)
         self.layout.addSpacing(10)
         
         self.btn_update = QPushButton("Update Plot")
+        self.btn_update.setToolTip("Updates or renders data visualization in the active Machine Learning tab.")
         self.btn_update.setStyleSheet("background-color: #3498db; color: white; font-weight: bold;")
         self.btn_update.clicked.connect(self.update_plot_requested.emit)
         self.layout.addWidget(self.btn_update)

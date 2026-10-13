@@ -114,6 +114,7 @@ class MainWindow(QMainWindow):
         self.toolbar = QToolBar("Main Toolbar")
         self.addToolBar(self.toolbar)
         self.action_add_to_report = QAction("📸 Add Current Plot to Presentation", self)
+        self.action_add_to_report.setToolTip("Captures current high-resolution plot for the PowerPoint Presentation Gallery.")
         self.action_add_to_report.triggered.connect(self.add_plot_to_report)
         self.toolbar.addAction(self.action_add_to_report)
         
@@ -137,22 +138,27 @@ class MainWindow(QMainWindow):
         
         var_layout.addWidget(QLabel("X Axis:"))
         self.combo_x = QComboBox()
+        self.combo_x.setToolTip("Select numerical or temporal variable for the horizontal axis (X).")
         var_layout.addWidget(self.combo_x)
         
         var_layout.addWidget(QLabel("Y Axis:"))
         self.combo_y = QComboBox()
+        self.combo_y.setToolTip("Select numerical variable for the vertical axis (Y).")
         var_layout.addWidget(self.combo_y)
         
         self.lbl_color_by = QLabel("Color by:")
         var_layout.addWidget(self.lbl_color_by)
         self.combo_color = QComboBox()
+        self.combo_color.setToolTip("Select categorical column for discrete color mapping with legend.")
         var_layout.addWidget(self.combo_color)
         
         self.edit_color_rule = QLineEdit()
         self.edit_color_rule.setPlaceholderText("Rule e.g. TS > 1000")
+        self.edit_color_rule.setToolTip("Logical Boolean rule to highlight data points without altering the dataset (e.g. TS > 1000 or Temp > 80 & Pres < 50).")
         var_layout.addWidget(self.edit_color_rule)
         
         self.btn_update_plot = QPushButton("Update Plot")
+        self.btn_update_plot.setToolTip("Renders or refreshes the active plot with selected variables (prevents UI freeze on large datasets).")
         self.btn_update_plot.clicked.connect(self.update_plot)
         self.btn_update_plot.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 5px;")
         var_layout.addWidget(self.btn_update_plot)

@@ -37,14 +37,17 @@ class PropertiesPanel(QWidget):
         
         self.edit_title = QLineEdit()
         self.edit_title.setPlaceholderText("Auto")
+        self.edit_title.setToolTip("Custom plot title.")
         self.edit_title.editingFinished.connect(self.emit_changes)
         
         self.edit_xlabel = QLineEdit()
         self.edit_xlabel.setPlaceholderText("Auto")
+        self.edit_xlabel.setToolTip("Custom horizontal axis label (X).")
         self.edit_xlabel.editingFinished.connect(self.emit_changes)
         
         self.edit_ylabel = QLineEdit()
         self.edit_ylabel.setPlaceholderText("Auto")
+        self.edit_ylabel.setToolTip("Custom vertical axis label (Y).")
         self.edit_ylabel.editingFinished.connect(self.emit_changes)
         
         self.form_labels = form_labels
@@ -63,6 +66,7 @@ class PropertiesPanel(QWidget):
         
         self.edit_upper = QLineEdit()
         self.edit_upper.setPlaceholderText("e.g., 980")
+        self.edit_upper.setToolTip("Numerical threshold for rendering a horizontal dashed upper limit line (e.g. 980).")
         self.edit_upper.editingFinished.connect(self.emit_changes)
         self.color_upper = ColorPickerButton("#FF0000")
         self.color_upper.colorChanged.connect(self.emit_changes)
@@ -75,6 +79,7 @@ class PropertiesPanel(QWidget):
         
         self.edit_lower = QLineEdit()
         self.edit_lower.setPlaceholderText("e.g., 700")
+        self.edit_lower.setToolTip("Numerical threshold for rendering a horizontal dashed lower limit line (e.g. 700).")
         self.edit_lower.editingFinished.connect(self.emit_changes)
         self.color_lower = ColorPickerButton("#FF0000")
         self.color_lower.colorChanged.connect(self.emit_changes)
@@ -87,6 +92,7 @@ class PropertiesPanel(QWidget):
         
         # Means
         self.chk_means = QCheckBox("Show Means")
+        self.chk_means.setToolTip("Displays numerical mean annotations directly above each box in Boxplot.")
         self.chk_means.toggled.connect(self.emit_changes)
         self.color_means = ColorPickerButton("#000000")
         self.color_means.colorChanged.connect(self.emit_changes)
@@ -99,6 +105,7 @@ class PropertiesPanel(QWidget):
         
         # Q1
         self.chk_q1 = QCheckBox("Show Q1 (Lower Box)")
+        self.chk_q1.setToolTip("Displays numerical first quartile (Q1) annotations on each box in Boxplot.")
         self.chk_q1.toggled.connect(self.emit_changes)
         self.color_q1 = ColorPickerButton("#333333")
         self.color_q1.colorChanged.connect(self.emit_changes)
@@ -111,6 +118,7 @@ class PropertiesPanel(QWidget):
         
         # Q3
         self.chk_q3 = QCheckBox("Show Q3 (Upper Box)")
+        self.chk_q3.setToolTip("Displays numerical third quartile (Q3) annotations on each box in Boxplot.")
         self.chk_q3.toggled.connect(self.emit_changes)
         self.color_q3 = ColorPickerButton("#333333")
         self.color_q3.colorChanged.connect(self.emit_changes)
@@ -122,16 +130,19 @@ class PropertiesPanel(QWidget):
         q3_layout.addWidget(self.color_q3)
         
         self.chk_xtable = QCheckBox("Show X-Axis Data Table")
+        self.chk_xtable.setToolTip("Enables hierarchical statistical data table on the X-axis (Minitab style). Check multiple variables under 'All Variables' to nest categories.")
         self.chk_xtable.toggled.connect(self.emit_changes)
         
         self.spin_decimals_x = QSpinBox()
         self.spin_decimals_x.setRange(0, 10)
         self.spin_decimals_x.setValue(0)
+        self.spin_decimals_x.setToolTip("Number of decimal places displayed on X-axis tick labels (0 to 10).")
         self.spin_decimals_x.valueChanged.connect(self.emit_changes)
         
         self.spin_decimals_y = QSpinBox()
         self.spin_decimals_y.setRange(0, 10)
         self.spin_decimals_y.setValue(0)
+        self.spin_decimals_y.setToolTip("Number of decimal places displayed on Y-axis tick labels (0 to 10).")
         self.spin_decimals_y.valueChanged.connect(self.emit_changes)
         
         self.form_limits = form_limits
@@ -156,6 +167,7 @@ class PropertiesPanel(QWidget):
         self.spin_size = QSpinBox()
         self.spin_size.setRange(1, 50)
         self.spin_size.setValue(5)
+        self.spin_size.setToolTip("Marker diameter in pixels for Scatter and PCA plots (1 to 50).")
         self.spin_size.valueChanged.connect(self.emit_changes)
         size_layout.addWidget(self.spin_size)
         aes_layout.addLayout(size_layout)
@@ -163,6 +175,7 @@ class PropertiesPanel(QWidget):
         # Linear Regression Toggle
         self.chk_regression = QCheckBox("Linear Regression (Scatter)")
         self.chk_regression.setChecked(False)
+        self.chk_regression.setToolTip("Fits an ordinary least squares (OLS) linear trendline on Scatter plots and computes R².")
         self.chk_regression.toggled.connect(self.emit_changes)
         aes_layout.addWidget(self.chk_regression)
         
@@ -173,6 +186,7 @@ class PropertiesPanel(QWidget):
         theme_layout.addWidget(QLabel("Palette:"))
         self.combo_theme = QComboBox()
         self.combo_theme.addItems(["viridis", "plasma", "inferno", "magma", "coolwarm"])
+        self.combo_theme.setToolTip("Colormap palette for correlation heatmaps and continuous color scales.")
         self.combo_theme.currentIndexChanged.connect(self.emit_changes)
         theme_layout.addWidget(self.combo_theme)
         aes_layout.addWidget(self.w_theme)
