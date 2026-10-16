@@ -1112,7 +1112,7 @@ class MainWindow(QMainWindow):
         import json
         try:
             # Consulta a API de releases do repositório público
-            api_url = "https://api.github.com/repos/Krigsrosa/quantyx-releases/releases/latest"
+            api_url = "https://api.github.com/repos/Krigsrosa/quantyx/releases/latest"
             
             req = urllib.request.Request(api_url, headers={'User-Agent': 'Quantyx-App'})
             with urllib.request.urlopen(req, timeout=5) as response:
