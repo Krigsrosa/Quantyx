@@ -109,6 +109,13 @@ class MainWindow(QMainWindow):
         self.outlier_plot = OutlierPlotWidget()
         self.central_stack.addWidget(self.outlier_plot)
         self.central_stack.addWidget(self.ml_tab_widget)
+        from widgets.optimization_settings_panel import OptimizationSettingsPanel
+        from plots.optimization_plots import OptimizationHubWidget
+        self.opt_settings_panel = OptimizationSettingsPanel()
+        self.opt_settings_panel.return_requested.connect(self.return_to_plots)
+        self.optimization_widget = OptimizationHubWidget(self.opt_settings_panel)
+        self.optimization_widget.status_message.connect(lambda msg: self.statusBar().showMessage(msg, 5000))
+        self.central_stack.addWidget(self.optimization_widget)
         from PyQt6.QtWidgets import QToolBar
         from PyQt6.QtGui import QAction
         self.toolbar = QToolBar("Main Toolbar")
@@ -220,6 +227,19 @@ class MainWindow(QMainWindow):
         self.tabifyDockWidget(self.props_dock, self.ml_dock)
         self.tabifyDockWidget(self.ml_dock, self.gallery_dock)
         self.ml_dock.hide()
+
+        # 4.6. Optimization Settings Dock (Right, hidden by default)
+        self.opt_dock = QDockWidget("Optimization Settings", self)
+        self.opt_dock.setTitleBarWidget(QWidget())
+        opt_scroll = QScrollArea()
+        opt_scroll.setWidgetResizable(True)
+        opt_scroll.setWidget(self.opt_settings_panel)
+        self.opt_dock.setWidget(opt_scroll)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.opt_dock)
+        self.tabifyDockWidget(self.ml_dock, self.opt_dock)
+        self.tabifyDockWidget(self.opt_dock, self.gallery_dock)
+        self.opt_dock.hide()
+        self.ml_dock.hide()
         
         self.props_dock.raise_()
         
@@ -303,9 +323,11 @@ class MainWindow(QMainWindow):
         prep_action = prep_menu.addAction("Open Preprocessing Tool")
         prep_action.triggered.connect(self.toggle_preprocessing_mode)
         
-        ml_menu = menubar.addMenu("Machine Learning")
+        ml_menu = menubar.addMenu("AI Tools")
         ml_action = ml_menu.addAction("Open ML Hub")
         ml_action.triggered.connect(self.toggle_ml_mode)
+        opt_action = ml_menu.addAction("Open Optimization Hub")
+        opt_action.triggered.connect(self.toggle_optimization_mode)
         
     def on_ml_train_requested(self):
         self.update_plot()
@@ -382,7 +404,25 @@ class MainWindow(QMainWindow):
             self.gallery_dock.show()
             self.ml_dock.show()
             self.ml_dock.raise_()
+            if hasattr(self, 'opt_dock'):
+                self.opt_dock.hide()
             self.on_ml_tab_changed()
+            self.update_plot()
+
+    def toggle_optimization_mode(self):
+        if self.central_stack.currentIndex() == 3:
+            self.return_to_plots()
+        else:
+            self.central_stack.setCurrentIndex(3)
+            self.prep_dock.hide()
+            self.filter_dock.hide()
+            self.props_dock.hide()
+            self.ml_dock.hide()
+            self.var_dock.hide()
+            self.gallery_dock.show()
+            self.opt_dock.show()
+            self.opt_dock.raise_()
+        if False:
             
             # Force a replot so the ML widget gets the variables
             self.update_plot()
@@ -417,6 +457,8 @@ class MainWindow(QMainWindow):
         self.gallery_dock.hide()
         self.ml_dock.hide()
         self.prep_dock.show()
+        if hasattr(self, 'opt_dock'):
+            self.opt_dock.hide()
         self.prep_panel.update_columns()
         
         # Override combo_x and combo_y to numeric for the outlier plot
@@ -443,6 +485,8 @@ class MainWindow(QMainWindow):
         self.update_outlier_plot()
         
     def return_to_plots(self):
+        if hasattr(self, 'opt_dock'):
+            self.opt_dock.hide()
         self.central_stack.setCurrentIndex(0)
         self.prep_dock.hide()
         self.ml_dock.hide()
@@ -516,7 +560,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Success", f"Applied {method} scaling to: {', '.join(cols)}")
         
     def on_auto_outlier_requested(self):
-        if self.data_manager.df is None: return
+        if self.data_manager.df is None and self.central_stack.currentIndex() != 3: return
         num_cols = self.data_manager.get_numeric_columns()
         if not num_cols: return
         
@@ -820,6 +864,8 @@ class MainWindow(QMainWindow):
         if self.central_stack.currentIndex() == 1:
             self.update_outlier_plot()
             return
+        elif self.central_stack.currentIndex() == 3:
+            return self.optimization_widget.plot_widget
         elif self.central_stack.currentIndex() == 2:
             selected_cols = []
             for i in range(self.var_list.count()):
@@ -898,6 +944,8 @@ class MainWindow(QMainWindow):
     def get_current_plot_widget(self):
         if self.central_stack.currentIndex() == 1:
             return self.outlier_plot
+        elif self.central_stack.currentIndex() == 3:
+            return self.optimization_widget.plot_widget
         elif self.central_stack.currentIndex() == 2:
             return self.get_active_ml_widget()
             
@@ -912,7 +960,7 @@ class MainWindow(QMainWindow):
         return None
 
     def export_plot(self, ext="png"):
-        if self.data_manager.df is None:
+        if self.data_manager.df is None and self.central_stack.currentIndex() != 3:
             QMessageBox.warning(self, "Export Error", "No plot available to export.")
             return
             
@@ -950,7 +998,7 @@ class MainWindow(QMainWindow):
         self.export_plot("pdf")
         
     def add_plot_to_report(self):
-        if self.data_manager.df is None:
+        if self.data_manager.df is None and self.central_stack.currentIndex() != 3:
             QMessageBox.warning(self, "Warning", "No data loaded!")
             return
             
