@@ -11,6 +11,7 @@ temp*/
 
 # Info files
 infos_sql.txt
+Benchmark_functions.py
 
 # Distribution / packaging
 .Python
